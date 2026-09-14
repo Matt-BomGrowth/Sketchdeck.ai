@@ -17,7 +17,7 @@
  * Run this on a machine that can reach notfair.co with a browser; nothing is
  * printed except the values you must store, never commit them.
  */
-import "dotenv/config";
+import "@/lib/config/load-env";
 import { createServer } from "node:http";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";

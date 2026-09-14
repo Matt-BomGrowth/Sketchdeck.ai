@@ -1,0 +1,26 @@
+#!/usr/bin/env sh
+# AdPilot AI — refuse to commit local secrets.
+# Installed automatically by `npm install` (scripts/install-hooks.mjs sets core.hooksPath).
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$staged" ] && exit 0
+
+# 1. Never commit env files other than the template.
+bad_env=$(printf '%s\n' "$staged" | grep -E '(^|/)\.env(\..*)?$' | grep -v -E '(^|/)\.env\.example$')
+if [ -n "$bad_env" ]; then
+  echo "✖ Refusing to commit environment file(s):"
+  printf '  %s\n' $bad_env
+  echo "  Local secrets belong in .env.local (git-ignored). Unstage with: git restore --staged <file>"
+  exit 1
+fi
+
+# 2. Never commit provider credentials (HubSpot private-app tokens, Supabase service keys, OAuth JSON).
+pattern='pat-(na|eu)[0-9]+-[0-9a-f]{8}-|SUPABASE_SERVICE_ROLE_KEY=ey|"refresh_token":"|sk_live_|AIza[0-9A-Za-z_-]{30,}'
+scan=$(printf '%s\n' "$staged" | grep -v -E '^(\.githooks/pre-commit|scripts/check-secrets\.mjs)$')
+hits=$(printf '%s\n' "$scan" | xargs -r git diff --cached -U0 -- 2>/dev/null | grep -E '^\+' | grep -v '^+++' | grep -E -n "$pattern" | head -5)
+if [ -n "$hits" ]; then
+  echo "✖ Refusing to commit: staged changes contain what looks like a credential."
+  echo "  Move it to .env.local and reference it via process.env."
+  exit 1
+fi
+exit 0

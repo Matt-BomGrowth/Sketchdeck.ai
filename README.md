@@ -48,10 +48,12 @@ docs/           architecture · deployment · integrations/notfair audit
 
 ```bash
 nvm use            # Node 22
-npm install
+npm install        # also installs the pre-commit secret guard (.githooks)
 cp .env.example .env.local   # DATA_MODE=demo works with no credentials
 npm run dev        # http://localhost:3000
 ```
+
+**Local secrets live only in `.env.local`.** It is git-ignored, the pre-commit hook refuses to commit any `.env*` file except `.env.example` or any credential-looking string, and CI runs the same check (`npm run check:secrets`). Next.js and all npm scripts read `.env.local` automatically; production values go in Vercel environment variables.
 
 Quality gates (also run in CI):
 
@@ -119,6 +121,12 @@ Flows through NotFair. A direct Google Ads API connector is scaffolded (`integra
 `integrations/linkedin` implements the Marketing API endpoints for ad accounts, campaigns and daily analytics; creatives require Marketing Developer Platform approval and are not implemented until authorized. LinkedIn campaign names are already visible through GA4 (`linkedin / paid-social`) for attribution.
 
 ### HubSpot
+
+Add `HUBSPOT_ACCESS_TOKEN=<private app token>` to `.env.local`, then verify without exposing the token:
+
+```bash
+npm run hubspot:verify
+```
 
 `integrations/hubspot` reads contacts by lifecycle-stage entry dates (`hs_v2_date_entered_*`), paid click ids and traffic-source drill-downs, plus deals (`amount_in_home_currency`, closed won/lost) through the v3 API with a private-app token. Property names were verified through the HubSpot MCP connection ([docs/integrations/hubspot.md](docs/integrations/hubspot.md)). **The portal connected in this workspace is the BOM Growth agency CRM, not SketchDeck's** — `HUBSPOT_ACCESS_TOKEN` must come from SketchDeck's own portal.
 

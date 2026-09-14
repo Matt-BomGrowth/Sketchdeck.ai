@@ -5,7 +5,7 @@
  *
  *   npm run db:seed
  */
-import "dotenv/config";
+import "@/lib/config/load-env";
 import { Client } from "pg";
 import { getDemoDataset } from "@/data/demo";
 import { buildDemoHistory } from "@/data/demo/history";

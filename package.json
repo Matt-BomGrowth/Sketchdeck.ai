@@ -2,7 +2,7 @@
   "name": "adpilot-ai",
   "version": "0.1.0",
   "private": true,
-  "description": "AI operating system for B2B marketing — connecting ad spend to pipeline and revenue. Built for SketchDeck.ai.",
+  "description": "AI operating system for B2B marketing \u2014 connecting ad spend to pipeline and revenue. Built for SketchDeck.ai.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -18,7 +18,9 @@
     "notfair:auth": "tsx scripts/notfair-auth.ts",
     "hubspot:verify": "tsx scripts/hubspot-verify.ts",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "prepare": "node scripts/install-hooks.mjs",
+    "check:secrets": "node scripts/check-secrets.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

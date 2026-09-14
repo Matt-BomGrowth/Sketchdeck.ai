@@ -4,7 +4,7 @@
  *
  *   npm run db:migrate
  */
-import "dotenv/config";
+import "@/lib/config/load-env";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Client } from "pg";

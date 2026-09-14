@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "@/lib/config/load-env";
 import { getJobRepository } from "@/lib/data";
 import { runDailyBrief } from "./index";
 

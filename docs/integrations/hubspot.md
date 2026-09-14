@@ -34,7 +34,8 @@ The connector in `integrations/hubspot/connector.ts` uses exactly these names.
 The sandbox that built AdPilot cannot reach `api.hubapi.com` (egress policy), so verify on your machine:
 
 ```bash
-HUBSPOT_ACCESS_TOKEN=pat-... npm run hubspot:verify
+# .env.local (git-ignored):  HUBSPOT_ACCESS_TOKEN=<private app token>
+npm run hubspot:verify
 ```
 
 It prints the portal id/currency/timezone, the last 90 days of funnel events by stage and source, the top campaign labels, and how many events attribute to the Google Ads campaign names. Nothing is stored. If a token was ever pasted into a chat or ticket, rotate it in HubSpot → Settings → Integrations → Private Apps.

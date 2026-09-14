@@ -1,14 +1,15 @@
 /**
  * Verify a HubSpot private-app token for AdPilot without storing it anywhere.
  *
- *   HUBSPOT_ACCESS_TOKEN=pat-... npm run hubspot:verify
+ *   # .env.local:  HUBSPOT_ACCESS_TOKEN=<private app token>
+ *   npm run hubspot:verify
  *
  * Prints: which portal the token belongs to, whether it looks like a marketing
  * portal with paid-media leads, the last 90 days of funnel events grouped by
  * stage and top campaign labels, and the attribution match rate against the
  * campaign names in the Google Ads account. Nothing is written.
  */
-import "dotenv/config";
+import "@/lib/config/load-env";
 import { HubSpotConnector } from "@/integrations/hubspot/connector";
 import { attributeFunnelEvents } from "@/integrations/attribution";
 import type { Campaign } from "@/types/domain";
@@ -22,7 +23,7 @@ const KNOWN_CAMPAIGNS: Campaign[] = [
 ].map((name, i) => ({ id: `g${i}`, organizationId: "verify", platform: "google", externalId: `g${i}`, name, status: "active", objective: "demo_requests", dailyBudget: 0, currency: "USD", country: "", industry: "", icpSegment: "", channelType: "Search", startedAt: "" }));
 
 async function main() {
-  if (!process.env.HUBSPOT_ACCESS_TOKEN) throw new Error("Set HUBSPOT_ACCESS_TOKEN for this run only (do not commit it).");
+  if (!process.env.HUBSPOT_ACCESS_TOKEN) throw new Error("HUBSPOT_ACCESS_TOKEN is not set. Add it to .env.local (git-ignored); never commit it.");
   const hs = new HubSpotConnector();
   const portal = await hs.describePortal();
   console.log(`Portal ${portal.portalId} · ${portal.accountType} · ${portal.companyCurrency} · ${portal.timeZone}`);
