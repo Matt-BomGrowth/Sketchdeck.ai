@@ -2,7 +2,8 @@ import type { IntegrationStatus } from "@/types/domain";
 import type { CrmConnector, CrmFunnelEvent, DateRange } from "@/integrations/types";
 
 /**
- * HubSpot CRM connector (official REST API v3, private-app token).
+ * HubSpot CRM connector (official REST API v3, authenticated with the HubSpot Service Key
+ * created for AdPilot AI - SketchDeck, supplied as HUBSPOT_ACCESS_TOKEN).
  *
  * Maps HubSpot lifecycle stages to AdPilot funnel stages:
  *   lead → lead, marketingqualifiedlead → mql, salesqualifiedlead → sql,
@@ -50,7 +51,7 @@ export class HubSpotConnector implements CrmConnector {
   }
 
   async checkHealth(): Promise<IntegrationStatus> {
-    if (!this.isConfigured()) return { key: this.key, name: this.name, health: "not_configured", detail: "Set HUBSPOT_ACCESS_TOKEN (private app) for SketchDeck's own portal." };
+    if (!this.isConfigured()) return { key: this.key, name: this.name, health: "not_configured", detail: "Set HUBSPOT_ACCESS_TOKEN (HubSpot Service Key) for SketchDeck's own portal." };
     try {
       const portal = await this.describePortal();
       await this.request("/crm/v3/objects/contacts?limit=1");

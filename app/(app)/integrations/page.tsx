@@ -16,7 +16,7 @@ const REQUIREMENTS: Record<string, string> = {
   google_ads: "Via NotFair. Direct API optional: GOOGLE_ADS_DEVELOPER_TOKEN, CLIENT_ID/SECRET, REFRESH_TOKEN, CUSTOMER_ID",
   meta: "META_ACCESS_TOKEN, META_AD_ACCOUNT_ID (Marketing API)",
   linkedin: "LINKEDIN_ACCESS_TOKEN, LINKEDIN_AD_ACCOUNT_ID (Marketing Developer Platform)",
-  hubspot: "HUBSPOT_ACCESS_TOKEN (private app) for SketchDeck's own portal — not the agency portal",
+  hubspot: "HUBSPOT_ACCESS_TOKEN (HubSpot Service Key) for SketchDeck's own portal — verify at /api/integrations/hubspot/verify",
   ga4: "Via NotFair. GA4_PROPERTY_ID optional (defaults to the active property)",
   search_console: "Via NotFair — connect Search Console in the NotFair workspace",
 };

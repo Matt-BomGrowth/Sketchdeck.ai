@@ -76,7 +76,7 @@ npm run build
 | Google Ads direct (optional) | `GOOGLE_ADS_*` | Only without NotFair |
 | Meta | `META_APP_ID`, `META_APP_SECRET`, `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID` | Meta Ads (live) |
 | LinkedIn | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_ACCESS_TOKEN`, `LINKEDIN_AD_ACCOUNT_ID` | LinkedIn Ads (live) |
-| HubSpot | `HUBSPOT_ACCESS_TOKEN` (+ client id/secret for OAuth later) | CRM funnel attribution |
+| HubSpot | `HUBSPOT_ACCESS_TOKEN` (HubSpot Service Key; + client id/secret for OAuth later) | CRM funnel attribution |
 | Search Console | `GOOGLE_SEARCH_CONSOLE_SITE_URL` | Once connected in NotFair |
 | Email | `EMAIL_PROVIDER` (`console`/`resend`/`sendgrid`), `EMAIL_PROVIDER_API_KEY`, `EMAIL_FROM`, `DAILY_BRIEF_RECIPIENTS` | Daily brief delivery |
 | Jobs | `CRON_SECRET` | Cron endpoints in production |
@@ -122,13 +122,9 @@ Flows through NotFair. A direct Google Ads API connector is scaffolded (`integra
 
 ### HubSpot
 
-Add `HUBSPOT_ACCESS_TOKEN=<private app token>` to `.env.local`, then verify without exposing the token:
+Supply the HubSpot Service Key as `HUBSPOT_ACCESS_TOKEN` — in production via Vercel environment variables (see [docs/deployment.md](docs/deployment.md)), locally via `.env.local`. Verify without exposing the key: after deployment open `/api/integrations/hubspot/verify?key=<CRON_SECRET>`, or locally `npm run hubspot:verify`.
 
-```bash
-npm run hubspot:verify
-```
-
-`integrations/hubspot` reads contacts by lifecycle-stage entry dates (`hs_v2_date_entered_*`), paid click ids and traffic-source drill-downs, plus deals (`amount_in_home_currency`, closed won/lost) through the v3 API with a private-app token. Property names were verified through the HubSpot MCP connection ([docs/integrations/hubspot.md](docs/integrations/hubspot.md)). **The portal connected in this workspace is the BOM Growth agency CRM, not SketchDeck's** — `HUBSPOT_ACCESS_TOKEN` must come from SketchDeck's own portal.
+`integrations/hubspot` reads contacts by lifecycle-stage entry dates (`hs_v2_date_entered_*`), paid click ids and traffic-source drill-downs, plus deals (`amount_in_home_currency`, closed won/lost) through the v3 API, authenticated with the HubSpot Service Key. Property names were verified through the HubSpot MCP connection ([docs/integrations/hubspot.md](docs/integrations/hubspot.md)). **The portal connected in this workspace is the BOM Growth agency CRM, not SketchDeck's** — `HUBSPOT_ACCESS_TOKEN` must come from SketchDeck's own portal.
 
 ### GA4 and Search Console
 

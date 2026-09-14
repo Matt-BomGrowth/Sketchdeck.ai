@@ -136,7 +136,7 @@ export class DemoRepository implements DataRepository {
       { key: "google_ads", name: "Google Ads", health: "demo", detail: "Demo data (via NotFair in live mode).", lastSyncAt: at },
       { key: "meta", name: "Meta Ads", health: "demo", detail: "Demo data. Marketing API credentials not configured.", lastSyncAt: at },
       { key: "linkedin", name: "LinkedIn Ads", health: "demo", detail: "Demo data. LinkedIn Marketing API credentials not configured.", lastSyncAt: at },
-      { key: "hubspot", name: "HubSpot CRM", health: "demo", detail: "Demo funnel (MQL/SQL/opportunity) generated locally.", lastSyncAt: at },
+      { key: "hubspot", name: "HubSpot CRM", health: "demo", detail: process.env.HUBSPOT_ACCESS_TOKEN ? "Demo funnel shown. HubSpot Service Key is configured — run /api/integrations/hubspot/verify to check the portal." : "Demo funnel (MQL/SQL/opportunity) generated locally.", lastSyncAt: at },
       { key: "ga4", name: "Google Analytics 4", health: "demo", detail: "Demo mode (via NotFair in live mode).", lastSyncAt: at },
       { key: "search_console", name: "Search Console", health: "demo", detail: "Demo mode (via NotFair in live mode).", lastSyncAt: at },
     ];

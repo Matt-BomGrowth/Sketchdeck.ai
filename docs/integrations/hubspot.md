@@ -12,7 +12,7 @@
 | Contacts matching "sketchdeck" | 13 — SketchDeck **employees** (source OFFLINE / Gmail extension), lifecycle "lead" |
 | Contacts with original source Paid Search or Paid Social | **0** |
 
-SketchDeck's paid-media leads (the `hubspot_form_submit` / `hubspot_meeting_success` events seen in GA4) live in **SketchDeck's own HubSpot portal**, which is not connected here. AdPilot's HubSpot connector must be pointed at that portal with its own private-app token (`HUBSPOT_ACCESS_TOKEN`), scopes `crm.objects.contacts.read`, `crm.objects.deals.read`, `crm.objects.companies.read`.
+SketchDeck's paid-media leads (the `hubspot_form_submit` / `hubspot_meeting_success` events seen in GA4) live in **SketchDeck's own HubSpot portal**, which is not connected here. AdPilot's HubSpot connector must be pointed at that portal with the HubSpot Service Key created for AdPilot AI - SketchDeck (`HUBSPOT_ACCESS_TOKEN`), scopes `crm.objects.contacts.read`, `crm.objects.deals.read`, `crm.objects.companies.read`.
 
 ## Verified schema (standard HubSpot, identical across portals)
 
@@ -29,16 +29,15 @@ The connector in `integrations/hubspot/connector.ts` uses exactly these names.
 2. Campaign label: `hs_analytics_first_touch_converting_campaign` or `hs_analytics_source_data_2` matched to the campaign name (works today because SketchDeck's GA4/UTM campaign names equal the Google Ads campaign names).
 3. Fallback: channel-level allocation by `hs_analytics_source`.
 
-## Verifying a token locally
+## Verifying the Service Key
 
-The sandbox that built AdPilot cannot reach `api.hubapi.com` (egress policy), so verify on your machine:
+The sandbox that built AdPilot cannot reach `api.hubapi.com` (egress policy). Verify from the deployed app — no terminal needed:
 
-```bash
-# .env.local (git-ignored):  HUBSPOT_ACCESS_TOKEN=<private app token>
-npm run hubspot:verify
+```
+https://<your-vercel-domain>/api/integrations/hubspot/verify?key=<CRON_SECRET>
 ```
 
-It prints the portal id/currency/timezone, the last 90 days of funnel events by stage and source, the top campaign labels, and how many events attribute to the Google Ads campaign names. Nothing is stored. If a token was ever pasted into a chat or ticket, rotate it in HubSpot → Settings → Integrations → Private Apps.
+(or locally with `HUBSPOT_ACCESS_TOKEN` in `.env.local` and `npm run hubspot:verify`). It returns the portal id/currency/timezone, the last 90 days of funnel events by stage and source, the top campaign labels, and how many events attribute to the Google Ads campaign names. Nothing is stored. If the key was ever pasted into a chat or ticket, rotate it in HubSpot and update the Vercel environment variable.
 
 ## How events become funnel metrics (hourly scan)
 
