@@ -15,6 +15,7 @@
     "db:seed": "tsx database/seed/seed.ts",
     "scan": "tsx jobs/hourly-scan/run.ts",
     "brief": "tsx jobs/daily-brief/run.ts",
+    "notfair:auth": "tsx scripts/notfair-auth.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

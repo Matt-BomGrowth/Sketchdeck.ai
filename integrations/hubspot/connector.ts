@@ -9,8 +9,17 @@ import type { CrmConnector, CrmFunnelEvent, DateRange } from "@/integrations/typ
  *   opportunity → opportunity, customer → closed_won.
  * Deal amounts feed pipeline/revenue.
  *
- * Status: implemented against the documented API shape; NOT yet verified
- * against a live SketchDeck portal in this environment (no token present).
+ * Property names were verified on 2026-09-14 through the HubSpot MCP
+ * connection: stage-entry timestamps are `hs_v2_date_entered_<stage>`
+ * (the older `hs_lifecyclestage_<stage>_date` names do not exist), and
+ * paid-click attribution is available via `hs_google_click_id`,
+ * `hs_facebook_click_id`, `hs_linkedin_click_id` plus
+ * `hs_analytics_source` / `hs_analytics_source_data_1|2`.
+ *
+ * IMPORTANT: the portal reachable from this workspace is "BOM Growth"
+ * (account 23696525) — the agency CRM, not SketchDeck's marketing portal.
+ * Point HUBSPOT_ACCESS_TOKEN at SketchDeck's own portal (where the
+ * `hubspot_form_submit` / `hubspot_meeting_success` events originate).
  */
 const BASE = "https://api.hubapi.com";
 
@@ -63,7 +72,12 @@ export class HubSpotConnector implements CrmConnector {
     do {
       const body: Record<string, unknown> = {
         filterGroups: [{ filters: [{ propertyName: "lastmodifieddate", operator: "BETWEEN", value: String(from), highValue: String(to) }] }],
-        properties: ["email", "lifecyclestage", "jobtitle", "hs_analytics_source", "hs_analytics_first_touch_converting_campaign", "hs_latest_source_data_2", "country", "hs_lifecyclestage_lead_date", "hs_lifecyclestage_marketingqualifiedlead_date", "hs_lifecyclestage_salesqualifiedlead_date", "hs_lifecyclestage_opportunity_date", "hs_lifecyclestage_customer_date"],
+        properties: [
+          "email", "lifecyclestage", "jobtitle", "industry", "country",
+          "hs_analytics_source", "hs_analytics_source_data_1", "hs_analytics_source_data_2",
+          "hs_analytics_first_touch_converting_campaign", "hs_google_click_id", "hs_facebook_click_id", "hs_linkedin_click_id",
+          "hs_v2_date_entered_lead", "hs_v2_date_entered_marketingqualifiedlead", "hs_v2_date_entered_salesqualifiedlead", "hs_v2_date_entered_opportunity", "hs_v2_date_entered_customer",
+        ],
         limit: 100,
         after,
       };
@@ -71,7 +85,7 @@ export class HubSpotConnector implements CrmConnector {
       for (const c of page.results) {
         const p = c.properties;
         for (const [hsStage, stage] of Object.entries(stageMap)) {
-          const at = p[`hs_lifecyclestage_${hsStage}_date`];
+          const at = p[`hs_v2_date_entered_${hsStage}`];
           if (!at) continue;
           const ts = new Date(at).getTime();
           if (ts < from || ts > to) continue;
@@ -80,10 +94,13 @@ export class HubSpotConnector implements CrmConnector {
             email: p.email ?? undefined,
             stage,
             occurredAt: new Date(ts).toISOString(),
-            campaignName: p.hs_analytics_first_touch_converting_campaign ?? p.hs_latest_source_data_2 ?? undefined,
+            // Drill-down 2 holds the campaign/ad-group label for PAID_SEARCH / PAID_SOCIAL originals.
+            campaignName: p.hs_analytics_first_touch_converting_campaign ?? p.hs_analytics_source_data_2 ?? undefined,
             source: p.hs_analytics_source ?? undefined,
             jobTitle: p.jobtitle ?? undefined,
+            industry: p.industry ?? undefined,
             country: p.country ?? undefined,
+            clickIds: { google: p.hs_google_click_id ?? undefined, meta: p.hs_facebook_click_id ?? undefined, linkedin: p.hs_linkedin_click_id ?? undefined },
           });
         }
       }
@@ -95,7 +112,7 @@ export class HubSpotConnector implements CrmConnector {
     do {
       const body: Record<string, unknown> = {
         filterGroups: [{ filters: [{ propertyName: "createdate", operator: "BETWEEN", value: String(from), highValue: String(to) }] }],
-        properties: ["dealname", "amount", "dealstage", "closedate", "hs_is_closed_won", "hs_analytics_source", "hs_campaign"],
+        properties: ["dealname", "amount", "amount_in_home_currency", "dealstage", "closedate", "hs_is_closed_won", "hs_is_closed_lost", "hs_analytics_source", "hs_analytics_source_data_2"],
         limit: 100,
         after,
       };
@@ -103,12 +120,13 @@ export class HubSpotConnector implements CrmConnector {
       for (const d of page.results) {
         const p = d.properties;
         const won = p.hs_is_closed_won === "true";
+        const lost = p.hs_is_closed_lost === "true";
         events.push({
           externalContactId: `deal:${d.id}`,
-          stage: won ? "closed_won" : "opportunity",
+          stage: won ? "closed_won" : lost ? "closed_lost" : "opportunity",
           occurredAt: new Date(won && p.closedate ? p.closedate : (p.closedate ?? new Date(from).toISOString())).toISOString(),
-          amount: p.amount ? Number(p.amount) : undefined,
-          campaignName: p.hs_campaign ?? undefined,
+          amount: p.amount_in_home_currency ? Number(p.amount_in_home_currency) : p.amount ? Number(p.amount) : undefined,
+          campaignName: p.hs_analytics_source_data_2 ?? undefined,
           source: p.hs_analytics_source ?? undefined,
         });
       }

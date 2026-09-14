@@ -70,7 +70,7 @@ npm run build
 | --- | --- | --- |
 | Mode | `DATA_MODE` (`demo`/`live`), `DEMO_ANCHOR_DATE`, `DEMO_REQUIRE_AUTH` | Always |
 | Database & auth | `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ADPILOT_ORGANIZATION_ID` | Live mode |
-| NotFair MCP | `NOTFAIR_MCP_URL`, `NOTFAIR_API_KEY`, `NOTFAIR_GOOGLE_ADS_ACCOUNT_ID`, `GA4_PROPERTY_ID` | Google Ads + GA4 (live) |
+| NotFair MCP | `NOTFAIR_MCP_URL`, `NOTFAIR_OAUTH_CLIENT`, `NOTFAIR_OAUTH_TOKENS` (from `npm run notfair:auth`), optional `NOTFAIR_TOKEN_STORE`, `NOTFAIR_API_KEY`, `NOTFAIR_GOOGLE_ADS_ACCOUNT_ID`, `GA4_PROPERTY_ID` | Google Ads + GA4 (live) |
 | Google Ads direct (optional) | `GOOGLE_ADS_*` | Only without NotFair |
 | Meta | `META_APP_ID`, `META_APP_SECRET`, `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID` | Meta Ads (live) |
 | LinkedIn | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_ACCESS_TOKEN`, `LINKEDIN_AD_ACCOUNT_ID` | LinkedIn Ads (live) |
@@ -104,7 +104,7 @@ The banner always shows 🟡 **DEMO DATA**. Demo creatives intentionally carry n
 
 The NotFair MCP connection in this workspace was inspected and verified on 2026-09-14. It exposes `search` / `executeRead` / `execute` over 125 capabilities; in the SketchDeck workspace **Google Ads (account 2175229247)** and **GA4 (properties/454640302)** are connected. Verified data: campaigns, budgets, bidding, daily metrics, Responsive Search Ad headlines/descriptions with performance labels, image assets with real URLs, conversion actions, GA4 key events (`hubspot_form_submit`, `hubspot_meeting_success`). Write capabilities (budget updates, pause/enable) exist and are gated behind AdPilot's approval workflow. Full audit: [docs/integrations/notfair.md](docs/integrations/notfair.md).
 
-Runtime connection: set `NOTFAIR_MCP_URL` and `NOTFAIR_API_KEY` (remote MCP server, Streamable HTTP). Until set, the integration reports *not configured* — it never claims to be live.
+Runtime connection: NotFair uses OAuth 2.1 + PKCE (no API keys). Run `npm run notfair:auth` once on a machine with a browser, store the printed `NOTFAIR_OAUTH_CLIENT` / `NOTFAIR_OAUTH_TOKENS` (or use `NOTFAIR_TOKEN_STORE=supabase`), and set `NOTFAIR_MCP_URL`. Until then the integration reports *not configured* — it never claims to be live.
 
 ### Google Ads
 
@@ -120,7 +120,7 @@ Flows through NotFair. A direct Google Ads API connector is scaffolded (`integra
 
 ### HubSpot
 
-`integrations/hubspot` reads contacts by lifecycle-stage dates (lead → MQL → SQL → opportunity → customer) and deals (amount, closed-won) through the v3 API with a private-app token. This is what populates MQL/SQL/opportunity/pipeline/revenue in live mode. Not yet verified against the SketchDeck portal.
+`integrations/hubspot` reads contacts by lifecycle-stage entry dates (`hs_v2_date_entered_*`), paid click ids and traffic-source drill-downs, plus deals (`amount_in_home_currency`, closed won/lost) through the v3 API with a private-app token. Property names were verified through the HubSpot MCP connection ([docs/integrations/hubspot.md](docs/integrations/hubspot.md)). **The portal connected in this workspace is the BOM Growth agency CRM, not SketchDeck's** — `HUBSPOT_ACCESS_TOKEN` must come from SketchDeck's own portal.
 
 ### GA4 and Search Console
 

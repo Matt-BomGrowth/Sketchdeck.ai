@@ -1,15 +1,20 @@
 /**
  * NotFair MCP client.
  *
- * NotFair is exposed as a remote MCP server. At runtime AdPilot connects with
- * the official MCP SDK over Streamable HTTP using NOTFAIR_MCP_URL and
- * NOTFAIR_API_KEY (bearer token). Capability ids and argument schemas are the
- * ones verified via the live connection (see capabilities.ts).
+ * NotFair is exposed as a remote MCP server (Streamable HTTP, OAuth 2.1 with
+ * PKCE — NotFair issues no static API keys). At runtime AdPilot connects with
+ * the official MCP SDK using NOTFAIR_MCP_URL plus OAuth material obtained once
+ * via `npm run notfair:auth` (see oauth.ts). A static bearer token
+ * (NOTFAIR_API_KEY) is still honoured if NotFair ever issues one.
+ * Capability ids and argument schemas are the ones verified via the live
+ * connection (see capabilities.ts).
  */
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import type { CapabilityDef } from "./capabilities";
+import { EnvTokenStore, NotFairOAuthProvider } from "./oauth";
 
 export interface NotFairSearchResult {
   workflowId?: string;
@@ -22,8 +27,8 @@ export interface NotFairSearchResult {
 export interface NotFairClientOptions {
   url?: string;
   apiKey?: string;
-  /** Override for tests. */
-  transportFactory?: () => { client: Client; connect(): Promise<void>; close(): Promise<void> };
+  /** OAuth provider (defaults to env-backed tokens when NOTFAIR_OAUTH_TOKENS is set). */
+  authProvider?: OAuthClientProvider;
 }
 
 export class NotFairError extends Error {
@@ -34,7 +39,7 @@ export class NotFairError extends Error {
 }
 
 export function notfairConfigured() {
-  return Boolean(process.env.NOTFAIR_MCP_URL);
+  return Boolean(process.env.NOTFAIR_MCP_URL && (process.env.NOTFAIR_API_KEY || process.env.NOTFAIR_OAUTH_TOKENS || process.env.NOTFAIR_OAUTH_CLIENT));
 }
 
 export class NotFairClient {
@@ -42,22 +47,26 @@ export class NotFairClient {
   private transport: StreamableHTTPClientTransport | null = null;
   private readonly url?: string;
   private readonly apiKey?: string;
+  private readonly authProvider?: OAuthClientProvider;
 
   constructor(opts: NotFairClientOptions = {}) {
     this.url = opts.url ?? process.env.NOTFAIR_MCP_URL;
     this.apiKey = opts.apiKey ?? process.env.NOTFAIR_API_KEY;
+    this.authProvider = opts.authProvider ?? (!this.apiKey && (process.env.NOTFAIR_OAUTH_TOKENS || process.env.NOTFAIR_OAUTH_CLIENT) ? new NotFairOAuthProvider({ store: new EnvTokenStore() }) : undefined);
   }
 
+  /** URL + (OAuth tokens or bearer token) present. */
   isConfigured() {
-    return Boolean(this.url);
+    return Boolean(this.url && (this.apiKey || this.authProvider));
   }
 
   private async connect(): Promise<Client> {
     if (this.client) return this.client;
     if (!this.url) throw new NotFairError("NOTFAIR_MCP_URL is not configured.", "not_configured");
+    if (!this.apiKey && !this.authProvider) throw new NotFairError("NotFair is not authorized. Run `npm run notfair:auth` and set NOTFAIR_OAUTH_TOKENS / NOTFAIR_OAUTH_CLIENT.", "not_configured");
     const headers: Record<string, string> = {};
     if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
-    this.transport = new StreamableHTTPClientTransport(new URL(this.url), { requestInit: { headers } });
+    this.transport = new StreamableHTTPClientTransport(new URL(this.url), { requestInit: { headers }, authProvider: this.authProvider });
     this.client = new Client({ name: "adpilot-ai", version: "0.1.0" });
     await this.client.connect(this.transport);
     return this.client;

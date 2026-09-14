@@ -71,6 +71,8 @@ export interface CrmFunnelEvent {
   companySize?: string;
   industry?: string;
   country?: string;
+  /** Paid click ids captured by HubSpot (gclid / fbclid / li_fat_id) for deterministic attribution. */
+  clickIds?: { google?: string; meta?: string; linkedin?: string };
 }
 
 export interface CrmConnector extends Connector {

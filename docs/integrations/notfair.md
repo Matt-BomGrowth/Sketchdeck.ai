@@ -84,12 +84,15 @@ Post-write verification: `google_ads_getChanges` (NotFair change log) and `googl
 
 ## 6. How AdPilot connects at runtime
 
-The MCP connection used for this audit lives in the Claude environment. For the deployed application, `integrations/notfair/client.ts` connects to NotFair's remote MCP server with the official MCP SDK over Streamable HTTP:
+The MCP connection used for this audit lives in the Claude environment. NotFair's public integration is MCP over Streamable HTTP secured with **OAuth 2.1 (authorization code + PKCE); NotFair issues no API keys**. The deployed application therefore authorizes once and then holds OAuth tokens that the MCP SDK refreshes automatically:
 
-```
-NOTFAIR_MCP_URL=<remote MCP endpoint provided by NotFair>
-NOTFAIR_API_KEY=<bearer token>
-NOTFAIR_GOOGLE_ADS_ACCOUNT_ID=2175229247   # optional
+```bash
+# on a machine with a browser that can reach notfair.co
+NOTFAIR_MCP_URL=https://notfair.co/api/mcp/google_ads npm run notfair:auth
+# → prints NOTFAIR_OAUTH_CLIENT and NOTFAIR_OAUTH_TOKENS to store as env vars
+#   (or writes them to integration_secrets with NOTFAIR_TOKEN_STORE=supabase)
 ```
 
-Until those are set, the NotFair integration reports `not_configured` and no live data is claimed.
+`integrations/notfair/oauth.ts` implements the SDK's `OAuthClientProvider` (dynamic client registration, PKCE, refresh) with env or Supabase persistence; `client.ts` uses it whenever `NOTFAIR_OAUTH_TOKENS` is present and falls back to `NOTFAIR_API_KEY` as a bearer token if NotFair ever issues one.
+
+**Endpoint note:** public references show per-platform endpoints of the form `https://notfair.co/api/mcp/<platform>` (e.g. `meta_ads`). Confirm the exact Google Ads / GA4 endpoint in the NotFair workspace; this sandbox could not reach notfair.co to verify the discovery documents. Until authorization completes, the integration reports `not_configured` and no live data is claimed.
