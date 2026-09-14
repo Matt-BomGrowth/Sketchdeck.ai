@@ -1,0 +1,156 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ───────────── Design tokens: Linear × HubSpot × AI command center ───────────── */
+:root {
+  --background: oklch(0.985 0.002 250);
+  --foreground: oklch(0.19 0.02 260);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.965 0.004 250);
+  --muted: oklch(0.55 0.02 260);
+  --muted-2: oklch(0.7 0.015 260);
+  --border: oklch(0.91 0.006 250);
+  --border-strong: oklch(0.85 0.008 250);
+  --accent: oklch(0.55 0.19 270);
+  --accent-fg: oklch(0.99 0 0);
+  --accent-soft: oklch(0.95 0.03 270);
+  --positive: oklch(0.6 0.15 155);
+  --positive-soft: oklch(0.95 0.04 155);
+  --warning: oklch(0.72 0.16 75);
+  --warning-soft: oklch(0.96 0.05 80);
+  --negative: oklch(0.6 0.2 25);
+  --negative-soft: oklch(0.95 0.04 25);
+  --info: oklch(0.62 0.15 235);
+  --google: oklch(0.6 0.17 250);
+  --meta: oklch(0.58 0.2 300);
+  --linkedin: oklch(0.6 0.13 210);
+  --chart-1: oklch(0.55 0.19 270);
+  --chart-2: oklch(0.6 0.15 155);
+  --chart-3: oklch(0.72 0.16 75);
+  --chart-4: oklch(0.62 0.15 235);
+  --chart-5: oklch(0.6 0.2 25);
+  --ring: oklch(0.55 0.19 270 / 0.4);
+  --radius: 0.625rem;
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.04), 0 1px 1px oklch(0 0 0 / 0.03);
+}
+
+.dark {
+  --background: oklch(0.155 0.012 260);
+  --foreground: oklch(0.95 0.005 250);
+  --surface: oklch(0.195 0.012 260);
+  --surface-2: oklch(0.235 0.012 260);
+  --muted: oklch(0.68 0.015 260);
+  --muted-2: oklch(0.5 0.015 260);
+  --border: oklch(0.27 0.012 260);
+  --border-strong: oklch(0.34 0.014 260);
+  --accent: oklch(0.7 0.16 275);
+  --accent-fg: oklch(0.14 0.02 260);
+  --accent-soft: oklch(0.3 0.06 272);
+  --positive: oklch(0.72 0.15 155);
+  --positive-soft: oklch(0.28 0.05 155);
+  --warning: oklch(0.8 0.15 80);
+  --warning-soft: oklch(0.32 0.06 80);
+  --negative: oklch(0.7 0.18 25);
+  --negative-soft: oklch(0.3 0.06 25);
+  --info: oklch(0.72 0.13 235);
+  --google: oklch(0.72 0.15 250);
+  --meta: oklch(0.72 0.17 300);
+  --linkedin: oklch(0.72 0.12 210);
+  --chart-1: oklch(0.7 0.16 275);
+  --chart-2: oklch(0.72 0.15 155);
+  --chart-3: oklch(0.8 0.15 80);
+  --chart-4: oklch(0.72 0.13 235);
+  --chart-5: oklch(0.7 0.18 25);
+  --ring: oklch(0.7 0.16 275 / 0.45);
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.4);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-muted: var(--muted);
+  --color-muted-2: var(--muted-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-positive: var(--positive);
+  --color-positive-soft: var(--positive-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-negative: var(--negative);
+  --color-negative-soft: var(--negative-soft);
+  --color-info: var(--info);
+  --color-google: var(--google);
+  --color-meta: var(--meta);
+  --color-linkedin: var(--linkedin);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-ring: var(--ring);
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  --shadow-card: var(--shadow-sm);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11", "tnum";
+  -webkit-font-smoothing: antialiased;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/* Scrollbars: quiet */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* Recharts text inherits our tokens */
+.recharts-text {
+  fill: var(--muted);
+  font-size: 11px;
+}
+.recharts-cartesian-grid line {
+  stroke: var(--border);
+}
+.recharts-tooltip-cursor {
+  fill: var(--surface-2);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
