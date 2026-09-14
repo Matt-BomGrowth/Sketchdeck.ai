@@ -44,11 +44,17 @@ export class HubSpotConnector implements CrmConnector {
     return (await res.json()) as T;
   }
 
+  /** Which portal the token belongs to — shown in Integrations so an agency portal is never mistaken for the client's. */
+  async describePortal() {
+    return this.request<{ portalId: number; uiDomain: string; timeZone: string; companyCurrency: string; accountType: string }>("/account-info/v3/details");
+  }
+
   async checkHealth(): Promise<IntegrationStatus> {
-    if (!this.isConfigured()) return { key: this.key, name: this.name, health: "not_configured", detail: "Set HUBSPOT_ACCESS_TOKEN (private app) to connect." };
+    if (!this.isConfigured()) return { key: this.key, name: this.name, health: "not_configured", detail: "Set HUBSPOT_ACCESS_TOKEN (private app) for SketchDeck's own portal." };
     try {
+      const portal = await this.describePortal();
       await this.request("/crm/v3/objects/contacts?limit=1");
-      return { key: this.key, name: this.name, health: "connected", detail: "Contacts API reachable.", lastSyncAt: new Date().toISOString() };
+      return { key: this.key, name: this.name, health: "connected", detail: `Portal ${portal.portalId} (${portal.companyCurrency}, ${portal.timeZone}) — verify this is SketchDeck's portal, not the agency's.`, lastSyncAt: new Date().toISOString() };
     } catch (err) {
       return { key: this.key, name: this.name, health: "connection_issue", detail: err instanceof Error ? err.message : String(err) };
     }

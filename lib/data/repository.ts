@@ -16,6 +16,7 @@ import type {
 } from "@/types/domain";
 import type { DecisionInput } from "@/agent/actions/approval-workflow";
 import type { NormalizedCampaign, NormalizedCampaignMetric, NormalizedCreative, NormalizedCreativeMetric } from "@/integrations/types";
+import type { AttributedFunnelRow } from "@/integrations/attribution";
 
 export interface DateRangeQuery {
   start: string;
@@ -60,5 +61,7 @@ export interface DataRepository {
   upsertDailyMetrics(rows: NormalizedCampaignMetric[], campaignIds: Map<string, string>, source: string): Promise<number>;
   upsertCreatives(rows: NormalizedCreative[], campaignIds: Map<string, string>, source: string): Promise<Map<string, string>>;
   upsertCreativeDailyMetrics(rows: NormalizedCreativeMetric[], creativeIds: Map<string, string>, source: string): Promise<number>;
+  /** Write CRM-attributed funnel counts (leads/MQL/SQL/opps/pipeline/revenue) onto campaign-day rows. */
+  applyFunnelAttribution(rows: AttributedFunnelRow[], source: string): Promise<number>;
   audit(actor: string, action: string, entityType: string, entityId?: string, details?: Record<string, unknown>): Promise<void>;
 }

@@ -16,6 +16,7 @@
     "scan": "tsx jobs/hourly-scan/run.ts",
     "brief": "tsx jobs/daily-brief/run.ts",
     "notfair:auth": "tsx scripts/notfair-auth.ts",
+    "hubspot:verify": "tsx scripts/hubspot-verify.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

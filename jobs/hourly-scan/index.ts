@@ -14,7 +14,9 @@
 
 import type { DataRepository } from "@/lib/data/repository";
 import type { Platform, ScanRun } from "@/types/domain";
-import { adPlatformConnectors, checkAllIntegrations } from "@/integrations/registry";
+import { adPlatformConnectors, checkAllIntegrations, crmConnectors } from "@/integrations/registry";
+import { attributeFunnelEvents, spendIndex } from "@/integrations/attribution";
+import type { NormalizedCampaignMetric } from "@/integrations/types";
 import { loadSnapshot } from "@/lib/analytics/load-snapshot";
 import { newId } from "@/lib/utils/id";
 import { windowEnding } from "@/lib/utils/dates";
@@ -49,6 +51,8 @@ export async function runHourlyScan(repo: DataRepository, options: ScanOptions =
     const yesterday = new Date(now);
     yesterday.setUTCDate(yesterday.getUTCDate() - 1);
     const range = windowEnding(yesterday.toISOString().slice(0, 10), options.fetchDays ?? 35);
+    const allMetrics: NormalizedCampaignMetric[] = [];
+    const externalToId = new Map<string, string>();
     for (const connector of adPlatformConnectors()) {
       if (!connector.isConfigured()) {
         log(`skip ${connector.name}: not configured`);
@@ -60,6 +64,8 @@ export async function runHourlyScan(repo: DataRepository, options: ScanOptions =
         const ids = await repo.upsertCampaigns(campaigns, connector.key);
         const metrics = await connector.fetchDailyMetrics({ start: range.start, end: range.end });
         const stored = await repo.upsertDailyMetrics(metrics, ids, connector.key);
+        allMetrics.push(...metrics);
+        for (const [k, v] of ids) externalToId.set(k.split(":").slice(1).join(":"), v);
         let creativesStored = 0;
         try {
           const creatives = await connector.fetchCreatives();
@@ -82,6 +88,26 @@ export async function runHourlyScan(repo: DataRepository, options: ScanOptions =
         log(`error ${connector.name}: ${message}`);
       }
     }
+    // CRM funnel attribution: HubSpot lifecycle + deal events → campaign-day MQL/SQL/opportunity/pipeline/revenue.
+    for (const crm of crmConnectors()) {
+      if (!crm.isConfigured()) {
+        log(`skip ${crm.name}: not configured`);
+        continue;
+      }
+      try {
+        const events = await crm.fetchFunnelEvents({ start: range.start, end: range.end });
+        const campaigns = await repo.getCampaigns();
+        const report = attributeFunnelEvents(events, campaigns, spendIndex(allMetrics, externalToId));
+        const written = await repo.applyFunnelAttribution(report.rows, crm.key);
+        log(`${crm.name}: ${events.length} events → ${written} campaign-days (name ${report.matchedByName}, channel ${report.matchedByChannel}, unattributed ${report.unattributed})`);
+        await repo.saveIntegrationStatus({ key: crm.key, name: crm.name, health: "connected", detail: `${events.length} funnel events; ${report.unattributed} unattributed`, lastSyncAt: now.toISOString() });
+      } catch (err) {
+        const message = errMsg(err);
+        run.errors.push(`${crm.name}: ${message}`);
+        await repo.saveIntegrationStatus({ key: crm.key, name: crm.name, health: "connection_issue", detail: message }).catch(() => undefined);
+      }
+    }
+
     // Independent health for non-ad integrations (CRM, analytics).
     try {
       const statuses = await checkAllIntegrations();

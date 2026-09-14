@@ -156,6 +156,9 @@ export class DemoRepository implements DataRepository {
   async upsertCreativeDailyMetrics() {
     return 0;
   }
+  async applyFunnelAttribution() {
+    return 0;
+  }
   async audit(actor: string, action: string, entityType: string, entityId?: string, details: Record<string, unknown> = {}) {
     ensureSeeded().audit.unshift({ id: newId("aud"), organizationId: getDemoDataset().organization.id, actor, action, entityType, entityId, details, createdAt: new Date().toISOString() });
   }

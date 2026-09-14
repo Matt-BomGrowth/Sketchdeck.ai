@@ -17,6 +17,7 @@ import { DEFAULT_FATIGUE_THRESHOLDS } from "@/agent/detectors/fatigue";
 import { DEFAULT_AUTOMATION_POLICY } from "@/agent/actions/policy";
 import { applyDecision, type DecisionInput } from "@/agent/actions/approval-workflow";
 import type { NormalizedCampaign, NormalizedCampaignMetric, NormalizedCreative, NormalizedCreativeMetric } from "@/integrations/types";
+import type { AttributedFunnelRow } from "@/integrations/attribution";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Row = Record<string, any>;
@@ -429,6 +430,38 @@ export class LiveRepository implements DataRepository {
         return { organization_id: this.organizationId, entity_type: "creative", entity_id: id, date: r.date, spend: r.spend, impressions: r.impressions, clicks: r.clicks, leads: r.leads, mqls: r.mqls, sqls: r.sqls, opportunities: r.opportunities, pipeline: r.pipeline, revenue: r.revenue, frequency: r.frequency ?? null, source };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null);
+    for (let i = 0; i < payload.length; i += 500) {
+      const { error } = await this.db.from("performance_metrics").upsert(payload.slice(i, i + 500), { onConflict: "entity_type,entity_id,date" });
+      if (error) throw new Error(error.message);
+    }
+    return payload.length;
+  }
+
+  async applyFunnelAttribution(rows: AttributedFunnelRow[], source: string) {
+    // Reset funnel columns for the affected dates first so re-runs are idempotent,
+    // then set the attributed values. Platform columns (spend/impressions/clicks) are untouched.
+    const dates = [...new Set(rows.map((r) => r.date))];
+    if (dates.length === 0) return 0;
+    const reset = await this.db
+      .from("performance_metrics")
+      .update({ mqls: 0, sqls: 0, opportunities: 0, pipeline: 0, revenue: 0 })
+      .eq("organization_id", this.organizationId)
+      .eq("entity_type", "campaign")
+      .in("date", dates);
+    if (reset.error) throw new Error(reset.error.message);
+    const payload = rows.map((r) => ({
+      organization_id: this.organizationId,
+      entity_type: "campaign",
+      entity_id: r.campaignId,
+      date: r.date,
+      leads: r.leads,
+      mqls: r.mqls,
+      sqls: r.sqls,
+      opportunities: r.opportunities,
+      pipeline: r.pipeline,
+      revenue: r.revenue,
+      source,
+    }));
     for (let i = 0; i < payload.length; i += 500) {
       const { error } = await this.db.from("performance_metrics").upsert(payload.slice(i, i + 500), { onConflict: "entity_type,entity_id,date" });
       if (error) throw new Error(error.message);

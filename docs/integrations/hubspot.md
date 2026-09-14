@@ -28,3 +28,17 @@ The connector in `integrations/hubspot/connector.ts` uses exactly these names.
 1. Deterministic: match `hs_google_click_id` / `hs_facebook_click_id` / `hs_linkedin_click_id` to the platform click (best).
 2. Campaign label: `hs_analytics_first_touch_converting_campaign` or `hs_analytics_source_data_2` matched to the campaign name (works today because SketchDeck's GA4/UTM campaign names equal the Google Ads campaign names).
 3. Fallback: channel-level allocation by `hs_analytics_source`.
+
+## Verifying a token locally
+
+The sandbox that built AdPilot cannot reach `api.hubapi.com` (egress policy), so verify on your machine:
+
+```bash
+HUBSPOT_ACCESS_TOKEN=pat-... npm run hubspot:verify
+```
+
+It prints the portal id/currency/timezone, the last 90 days of funnel events by stage and source, the top campaign labels, and how many events attribute to the Google Ads campaign names. Nothing is stored. If a token was ever pasted into a chat or ticket, rotate it in HubSpot → Settings → Integrations → Private Apps.
+
+## How events become funnel metrics (hourly scan)
+
+`integrations/attribution.ts`: campaign-name match → channel fallback (click id or original source, credited to the day's highest-spend campaign on that platform) → unattributed (counted, never invented). The scan writes MQL/SQL/opportunity/pipeline/revenue onto `performance_metrics` campaign-day rows and records the match rates in the integration status.
