@@ -1,0 +1,62 @@
+{
+  "_note": "Trimmed real responses captured through the NotFair MCP connection on 2026-09-14 for the SketchDeck.AI Google Ads account (2175229247). Used only for normalizer tests; not demo data.",
+  "customer": { "customer": { "id": 2175229247, "descriptive_name": "SketchDeck.AI", "currency_code": "USD", "time_zone": "America/Edmonton" } },
+  "campaigns": [
+    { "campaign": { "status": 2, "advertising_channel_type": 2, "bidding_strategy_type": 10, "name": "USA,CA | Core Phrases | Search | [tCPA $600]", "id": 23545358793, "status_name": "ENABLED", "advertising_channel_type_name": "SEARCH", "bidding_strategy_type_name": "MAXIMIZE_CONVERSIONS" }, "campaign_budget": { "amount_micros": 120000000, "amount_value": 120 } },
+    { "campaign": { "status": 3, "advertising_channel_type": 2, "bidding_strategy_type": 9, "name": "pilot-campaign | search | sketchdeck.ai | $1000/m", "id": 22663521071, "status_name": "PAUSED", "advertising_channel_type_name": "SEARCH", "bidding_strategy_type_name": "TARGET_SPEND" }, "campaign_budget": { "amount_micros": 50000000, "amount_value": 50 } },
+    { "campaign": { "status": 2, "advertising_channel_type": 2, "bidding_strategy_type": 3, "name": "USA,CA | Search | Brand | [mCPC]", "id": 23584905281, "status_name": "ENABLED", "advertising_channel_type_name": "SEARCH", "bidding_strategy_type_name": "MANUAL_CPC" }, "campaign_budget": { "amount_micros": 20000000, "amount_value": 20 } }
+  ],
+  "daily": [
+    { "campaign": { "status": 2, "name": "USA,CA | Core Phrases | Search | [tCPA $600]", "id": 23545358793, "status_name": "ENABLED" }, "metrics": { "clicks": 9, "conversions_value": 0, "conversions": 0, "cost_micros": 209385000, "impressions": 274, "cost_value": 209.385 }, "segments": { "date": "2026-09-02" } },
+    { "campaign": { "status": 2, "name": "USA,CA | Search | Brand | [mCPC]", "id": 23584905281, "status_name": "ENABLED" }, "metrics": { "clicks": 8, "conversions_value": 0, "conversions": 1, "cost_micros": 29520000, "impressions": 54, "cost_value": 29.52 }, "segments": { "date": "2026-09-01" } }
+  ],
+  "ads": [
+    {
+      "campaign": { "status": 2, "name": "USA,CA | Core Phrases | Search | [tCPA $600]", "id": 23545358793, "status_name": "ENABLED" },
+      "ad_group": { "status": 2, "id": 196820796887, "name": "Steel Takeoff Software", "status_name": "ENABLED" },
+      "metrics": { "clicks": 24, "conversions": 0, "cost_micros": 667567961, "impressions": 224, "cost_value": 667.567961 },
+      "ad_group_ad": {
+        "status": 2,
+        "status_name": "ENABLED",
+        "policy_summary": { "approval_status": 4, "approval_status_name": "APPROVED" },
+        "ad": {
+          "type": 15,
+          "type_name": "RESPONSIVE_SEARCH_AD",
+          "id": 796862002210,
+          "final_urls": ["https://sketchdeck.ai/"],
+          "responsive_search_ad": {
+            "headlines": [
+              { "text": "Structural Steel Takeoffs", "asset_performance_label": 2, "asset_performance_label_name": "PENDING" },
+              { "text": "Automate Steel Takeoffs", "asset_performance_label": 3, "asset_performance_label_name": "LEARNING" },
+              { "text": "Steel Quantities in Minutes", "asset_performance_label": 5, "asset_performance_label_name": "GOOD" }
+            ],
+            "descriptions": [
+              { "text": "Cut takeoff time from days to hours. Reduce errors and win more profitable work.", "asset_performance_label_name": "PENDING" },
+              { "text": "AI-powered steel takeoffs from drawings. Get a clean BOM for your bid package.", "asset_performance_label_name": "GOOD" }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "imageAssets": [
+    { "asset": { "type": 4, "image_asset": { "mime_type": 4, "full_size": { "height_pixels": 834, "width_pixels": 2595, "url": "https://tpc.googlesyndication.com/simgad/222199581926443641" }, "mime_type_name": "IMAGE_PNG" }, "id": 316914142798, "name": "SD-ID-logo-Colour.png", "type_name": "IMAGE" } },
+    { "asset": { "type": 4, "image_asset": { "mime_type": 2, "full_size": { "height_pixels": 768, "width_pixels": 768, "url": "https://tpc.googlesyndication.com/simgad/9332426538986985902" }, "mime_type_name": "IMAGE_JPEG" }, "id": 399560656823, "type_name": "IMAGE" } }
+  ],
+  "conversionActions": [
+    { "conversion_action": { "id": 7170016968, "name": "Booked demo meeting", "primary_for_goal": true, "status_name": "ENABLED", "type_name": "WEBPAGE", "category_name": "BOOK_APPOINTMENT" } },
+    { "conversion_action": { "id": 7170016749, "name": "Contact page form", "primary_for_goal": true, "status_name": "ENABLED", "type_name": "WEBPAGE", "category_name": "SUBMIT_LEAD_FORM" } },
+    { "conversion_action": { "id": 7558332934, "name": "Calls from ads", "primary_for_goal": true, "status_name": "ENABLED", "type_name": "AD_CALL", "category_name": "PHONE_CALL_LEAD" } }
+  ],
+  "ga4": {
+    "propertyId": "properties/454640302",
+    "channels": [
+      { "dimensionValues": [{ "value": "Paid Search" }], "metricValues": [{ "value": "316" }, { "value": "240" }, { "value": "6" }, { "value": "0.5158" }] }
+    ],
+    "keyEvents": [
+      { "dimensionValues": [{ "value": "hubspot_meeting_success" }, { "value": "USA,CA | Core Phrases | Search | [tCPA $600]" }], "metricValues": [{ "value": "2" }] },
+      { "dimensionValues": [{ "value": "hubspot_form_submit" }, { "value": "USA,CA | Core Phrases | Search | [tCPA $600]" }], "metricValues": [{ "value": "1" }] },
+      { "dimensionValues": [{ "value": "email_clicks" }, { "value": "USA,CA | Search | Brand | [mCPC]" }], "metricValues": [{ "value": "3" }] }
+    ]
+  }
+}
