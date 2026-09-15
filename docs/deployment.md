@@ -66,7 +66,25 @@ If the key was ever shared in a chat or ticket, rotate it in HubSpot, update the
 
 ## 5. Cron
 
-`vercel.json` schedules `/api/cron/hourly-scan` hourly and `/api/cron/daily-brief` daily at 13:00 UTC. Vercel sends `Authorization: Bearer $CRON_SECRET` automatically. Any other scheduler can call the same endpoints with that header.
+`vercel.json` schedules `/api/cron/daily-brief` at 13:00 UTC and `/api/cron/hourly-scan` at 12:00 UTC (**once daily**, not hourly). Vercel sends `Authorization: Bearer $CRON_SECRET` automatically.
+
+**Why the scan isn't actually hourly by default:** Vercel's free **Hobby** plan restricts cron jobs to at most once per day per job — a genuinely hourly schedule (`0 * * * *`) is rejected at deploy time with "Hobby accounts are limited to daily cron jobs," and the deployment never completes. The `/api/cron/hourly-scan` endpoint itself has no such limit; only Vercel's own Hobby-plan scheduler does. Two ways to get real hourly cadence:
+
+- **Upgrade the Vercel project to the Pro plan**, then change the schedule back to `"0 * * * *"` in `vercel.json`.
+- **Keep Hobby and drive the endpoint from GitHub Actions instead** (free, supports finer-grained schedules):
+
+  ```yaml
+  # .github/workflows/hourly-scan.yml
+  on:
+    schedule: [{ cron: "0 * * * *" }]
+  jobs:
+    scan:
+      runs-on: ubuntu-latest
+      steps:
+        - run: curl -fsS -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" https://<your-vercel-domain>/api/cron/hourly-scan
+  ```
+
+  Add `CRON_SECRET` as a GitHub Actions secret with the same value as in Vercel, then this workflow calls the endpoint every hour regardless of Vercel's own cron plan limits.
 
 ## 6. Recommended project layout
 

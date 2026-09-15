@@ -132,7 +132,7 @@ Both read through NotFair. GA4 is connected and verified. Search Console is supp
 
 ## Scheduled jobs
 
-- `GET /api/cron/hourly-scan` — every hour (`vercel.json`): fetch → normalize → store → KPIs → anomalies → fatigue → campaigns → audiences → creatives → recommendations → record `scan_runs`.
+- `GET /api/cron/hourly-scan` — fetch → normalize → store → KPIs → anomalies → fatigue → campaigns → audiences → creatives → recommendations → record `scan_runs`. Scheduled once daily at 12:00 UTC in `vercel.json` by default, because Vercel's free Hobby plan caps cron jobs at once/day; see [docs/deployment.md](docs/deployment.md) for restoring true hourly cadence (Pro plan, or a free GitHub Actions schedule).
 - `GET /api/cron/daily-brief` — daily 13:00 UTC: pipeline, revenue, ROAS, MQLs, SQLs, wins, problems, recommendations, actions; markdown + email HTML.
 - Both require `Authorization: Bearer $CRON_SECRET`. CLI equivalents: `npm run scan`, `npm run brief`.
 
