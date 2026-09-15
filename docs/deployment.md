@@ -32,7 +32,7 @@ The key is read server-side only (`integrations/hubspot/connector.ts`), is never
 | `CRON_SECRET` | Protects `/api/cron/*` and the verification endpoint. Any random string of 32+ characters. | Now |
 | `DATA_MODE` | `demo` (public demo) or `live` (authenticated, real integrations) | Now: `demo`; `live` once Supabase + NotFair are set |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ADPILOT_ORGANIZATION_ID` | Auth + database | Before switching to `live` |
-| `NOTFAIR_MCP_URL`, `NOTFAIR_OAUTH_CLIENT`, `NOTFAIR_OAUTH_TOKENS` | NotFair MCP (Google Ads + GA4) — see docs/integrations/notfair.md | Before switching to `live` |
+| `NOTFAIR_MCP_URL` | NotFair MCP (Google Ads + GA4) endpoint — see docs/integrations/notfair.md. Authorization itself happens by clicking a button in the app (section 5 below), not through an env var. | Before switching to `live` |
 | `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID`, `LINKEDIN_ACCESS_TOKEN`, `LINKEDIN_AD_ACCOUNT_ID` | Additional ad platforms | When available |
 | `EMAIL_PROVIDER`, `EMAIL_PROVIDER_API_KEY`, `EMAIL_FROM`, `DAILY_BRIEF_RECIPIENTS` | Daily brief email | Optional |
 
@@ -64,7 +64,19 @@ If the key was ever shared in a chat or ticket, rotate it in HubSpot, update the
 3. Insert the organization row and add users to `users (id, organization_id, email, role)` with their Supabase auth ids; put the organization id in `ADPILOT_ORGANIZATION_ID`.
 4. Optional: `npm run db:seed` loads the SketchDeck demo dataset (rows tagged `source='demo'`).
 
-## 5. Cron
+## 5. Connect NotFair (browser only — no terminal)
+
+Requires Supabase to already be configured (step 4) and `NOTFAIR_MCP_URL` + `ADPILOT_ORGANIZATION_ID` set (step 2) and the app redeployed.
+
+1. Sign in to your deployed app.
+2. Open **Integrations** in the sidebar.
+3. Click **Connect NotFair**.
+4. You're redirected to NotFair — approve access.
+5. You land back on **Integrations** with a "✅ NotFair connected" banner, and the NotFair card turns 🟢.
+
+No CLI, no `.env.local`, no local terminal. Tokens are stored server-side in the `integration_secrets` table (service-role only, never sent to the browser) and refreshed automatically. Full detail: [docs/integrations/notfair.md](docs/integrations/notfair.md).
+
+## 6. Cron
 
 `vercel.json` schedules `/api/cron/daily-brief` at 13:00 UTC and `/api/cron/hourly-scan` at 12:00 UTC (**once daily**, not hourly). Vercel sends `Authorization: Bearer $CRON_SECRET` automatically.
 
@@ -86,7 +98,7 @@ If the key was ever shared in a chat or ticket, rotate it in HubSpot, update the
 
   Add `CRON_SECRET` as a GitHub Actions secret with the same value as in Vercel, then this workflow calls the endpoint every hour regardless of Vercel's own cron plan limits.
 
-## 6. Recommended project layout
+## 7. Recommended project layout
 
 Two Vercel projects from the same repository: a **public demo** (`DATA_MODE=demo`, no Supabase, no credentials) and the **customer app** (`DATA_MODE=live`, authentication enforced, all credentials). Live customer data is never served through an unauthenticated route.
 
@@ -94,7 +106,7 @@ Two Vercel projects from the same repository: a **public demo** (`DATA_MODE=demo
 
 - [ ] `HUBSPOT_ACCESS_TOKEN` set (Production, Sensitive) and `/api/integrations/hubspot/verify` returns `ok: true`
 - [ ] `CRON_SECRET` set
-- [ ] NotFair OAuth material set and `/integrations` shows 🟢 Connected
+- [ ] `NOTFAIR_MCP_URL` set, **Connect NotFair** clicked on `/integrations`, and it shows 🟢 Connected
 - [ ] Supabase configured, migrations applied, organization + users created
 - [ ] `DATA_MODE=live`, redeployed, sign-in works
 - [ ] Automation policy reviewed in Settings (auto-execute is OFF by default)

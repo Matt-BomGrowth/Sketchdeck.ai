@@ -84,15 +84,30 @@ Post-write verification: `google_ads_getChanges` (NotFair change log) and `googl
 
 ## 6. How AdPilot connects at runtime
 
-The MCP connection used for this audit lives in the Claude environment. NotFair's public integration is MCP over Streamable HTTP secured with **OAuth 2.1 (authorization code + PKCE); NotFair issues no API keys**. The deployed application therefore authorizes once and then holds OAuth tokens that the MCP SDK refreshes automatically:
+NotFair's public integration is MCP over Streamable HTTP secured with **OAuth 2.1 (authorization code + PKCE); NotFair issues no API keys**.
+
+### Primary path: authorize from the browser (no terminal needed)
+
+Once `NOTFAIR_MCP_URL` and `ADPILOT_ORGANIZATION_ID` are set in Vercel and the app is deployed:
+
+1. Sign in to the deployed app and open **Integrations**.
+2. Click **Connect NotFair**. This hits `GET /api/integrations/notfair/authorize`, which discovers NotFair's authorization server, dynamically registers AdPilot as an OAuth client (once — the registration is reused after), builds a PKCE authorization URL, and redirects your browser to NotFair.
+3. Approve access in NotFair. It redirects back to `GET /api/integrations/notfair/callback`, which exchanges the code for tokens and stores them in the `integration_secrets` table (service-role only — never exposed to the browser or any client bundle).
+4. The Integrations page shows a "NotFair connected" banner and the health check turns 🟢.
+
+This requires `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to be set (the token store lives in Postgres, since the authorize and callback steps run as two separate serverless requests with nothing else to share state). Implementation: `integrations/notfair/oauth.ts` (`SupabaseTokenStore`, `notFairClientMetadata`), `app/api/integrations/notfair/authorize/route.ts`, `app/api/integrations/notfair/callback/route.ts`.
+
+### Alternative: CLI authorization (local development only)
+
+For local development with a terminal and browser on the same machine:
 
 ```bash
-# on a machine with a browser that can reach notfair.co
-NOTFAIR_MCP_URL=https://notfair.co/api/mcp/google_ads npm run notfair:auth
+# .env.local:  NOTFAIR_MCP_URL=https://notfair.co/api/mcp/google_ads
+npm run notfair:auth
 # → prints NOTFAIR_OAUTH_CLIENT and NOTFAIR_OAUTH_TOKENS to store as env vars
 #   (or writes them to integration_secrets with NOTFAIR_TOKEN_STORE=supabase)
 ```
 
-`integrations/notfair/oauth.ts` implements the SDK's `OAuthClientProvider` (dynamic client registration, PKCE, refresh) with env or Supabase persistence; `client.ts` uses it whenever `NOTFAIR_OAUTH_TOKENS` is present and falls back to `NOTFAIR_API_KEY` as a bearer token if NotFair ever issues one.
+`integrations/notfair/client.ts` uses `NOTFAIR_OAUTH_TOKENS` when present (env-based store) and falls back to `NOTFAIR_API_KEY` as a bearer token if NotFair ever issues one. In production, the browser flow above and the CLI flow both end up writing to the same `integration_secrets` table when `NOTFAIR_TOKEN_STORE=supabase` — either one works; the browser flow is the one that needs no local terminal.
 
 **Endpoint note:** public references show per-platform endpoints of the form `https://notfair.co/api/mcp/<platform>` (e.g. `meta_ads`). Confirm the exact Google Ads / GA4 endpoint in the NotFair workspace; this sandbox could not reach notfair.co to verify the discovery documents. Until authorization completes, the integration reports `not_configured` and no live data is claimed.

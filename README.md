@@ -72,7 +72,7 @@ npm run build
 | --- | --- | --- |
 | Mode | `DATA_MODE` (`demo`/`live`), `DEMO_ANCHOR_DATE`, `DEMO_REQUIRE_AUTH` | Always |
 | Database & auth | `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ADPILOT_ORGANIZATION_ID` | Live mode |
-| NotFair MCP | `NOTFAIR_MCP_URL`, `NOTFAIR_OAUTH_CLIENT`, `NOTFAIR_OAUTH_TOKENS` (from `npm run notfair:auth`), optional `NOTFAIR_TOKEN_STORE`, `NOTFAIR_API_KEY`, `NOTFAIR_GOOGLE_ADS_ACCOUNT_ID`, `GA4_PROPERTY_ID` | Google Ads + GA4 (live) |
+| NotFair MCP | `NOTFAIR_MCP_URL` (+ `ADPILOT_ORGANIZATION_ID`, Supabase) — authorize by clicking **Connect NotFair** on the deployed app's Integrations page, no terminal needed. Local dev alternative: `NOTFAIR_OAUTH_CLIENT`/`NOTFAIR_OAUTH_TOKENS` from `npm run notfair:auth`. Optional: `NOTFAIR_TOKEN_STORE`, `NOTFAIR_API_KEY`, `NOTFAIR_GOOGLE_ADS_ACCOUNT_ID`, `GA4_PROPERTY_ID` | Google Ads + GA4 (live) |
 | Google Ads direct (optional) | `GOOGLE_ADS_*` | Only without NotFair |
 | Meta | `META_APP_ID`, `META_APP_SECRET`, `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID` | Meta Ads (live) |
 | LinkedIn | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_ACCESS_TOKEN`, `LINKEDIN_AD_ACCOUNT_ID` | LinkedIn Ads (live) |
@@ -106,7 +106,7 @@ The banner always shows 🟡 **DEMO DATA**. Demo creatives intentionally carry n
 
 The NotFair MCP connection in this workspace was inspected and verified on 2026-09-14. It exposes `search` / `executeRead` / `execute` over 125 capabilities; in the SketchDeck workspace **Google Ads (account 2175229247)** and **GA4 (properties/454640302)** are connected. Verified data: campaigns, budgets, bidding, daily metrics, Responsive Search Ad headlines/descriptions with performance labels, image assets with real URLs, conversion actions, GA4 key events (`hubspot_form_submit`, `hubspot_meeting_success`). Write capabilities (budget updates, pause/enable) exist and are gated behind AdPilot's approval workflow. Full audit: [docs/integrations/notfair.md](docs/integrations/notfair.md).
 
-Runtime connection: NotFair uses OAuth 2.1 + PKCE (no API keys). Run `npm run notfair:auth` once on a machine with a browser, store the printed `NOTFAIR_OAUTH_CLIENT` / `NOTFAIR_OAUTH_TOKENS` (or use `NOTFAIR_TOKEN_STORE=supabase`), and set `NOTFAIR_MCP_URL`. Until then the integration reports *not configured* — it never claims to be live.
+Runtime connection: NotFair uses OAuth 2.1 + PKCE (no API keys). In production, set `NOTFAIR_MCP_URL` and `ADPILOT_ORGANIZATION_ID` in Vercel, then click **Connect NotFair** on the deployed app's Integrations page — a browser-only OAuth flow (`/api/integrations/notfair/authorize` → `/callback`) that stores tokens server-side; no terminal required. For local development, `npm run notfair:auth` is a CLI alternative. Until authorized, the integration reports *not configured* — it never claims to be live.
 
 ### Google Ads
 

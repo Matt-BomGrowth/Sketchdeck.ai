@@ -21,6 +21,9 @@ export interface StoredOAuthState {
   client?: OAuthClientInformationMixed;
   tokens?: OAuthTokens;
   codeVerifier?: string;
+  /** CSRF nonce for an in-flight browser authorization (see app/api/integrations/notfair/authorize). */
+  pendingState?: string;
+  authorizationServerUrl?: string;
 }
 
 export interface TokenStore {
@@ -70,6 +73,17 @@ export class SupabaseTokenStore implements TokenStore {
   }
 }
 
+/** OAuth client metadata AdPilot registers with NotFair — shared by the CLI script and the deployed authorize route. */
+export function notFairClientMetadata(redirectUrl: string): OAuthClientMetadata {
+  return {
+    client_name: "AdPilot AI",
+    redirect_uris: [redirectUrl],
+    grant_types: ["authorization_code", "refresh_token"],
+    response_types: ["code"],
+    token_endpoint_auth_method: "none",
+  };
+}
+
 export interface NotFairOAuthOptions {
   store: TokenStore;
   /** Redirect URI registered for the one-time browser flow (CLI default: http://127.0.0.1:8765/callback). */
@@ -88,13 +102,7 @@ export class NotFairOAuthProvider implements OAuthClientProvider {
   }
 
   get clientMetadata(): OAuthClientMetadata {
-    return {
-      client_name: this.opts.clientName ?? "AdPilot AI",
-      redirect_uris: [String(this.redirectUrl)],
-      grant_types: ["authorization_code", "refresh_token"],
-      response_types: ["code"],
-      token_endpoint_auth_method: "none",
-    };
+    return notFairClientMetadata(String(this.redirectUrl));
   }
 
   private async loadState() {
