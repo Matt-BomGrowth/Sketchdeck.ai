@@ -141,5 +141,9 @@ export async function runHourlyScan(repo: DataRepository, options: ScanOptions =
 }
 
 function errMsg(err: unknown) {
-  return err instanceof Error ? err.message : String(err);
+  if (!(err instanceof Error)) return String(err);
+  const details = (err as { details?: unknown }).details;
+  if (details === undefined || details === null) return err.message;
+  const text = typeof details === "string" ? details : JSON.stringify(details);
+  return `${err.message}: ${text.slice(0, 500)}`;
 }

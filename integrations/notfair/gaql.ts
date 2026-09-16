@@ -12,7 +12,7 @@
 export function campaignInventoryScript() {
   return `
 const r = await ads.gaqlParallel([
-  { name: 'campaigns', query: \`SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, campaign.bidding_strategy_type, campaign.start_date, campaign_budget.amount_micros FROM campaign WHERE campaign.status != 'REMOVED'\`, limit: 500 },
+  { name: 'campaigns', query: \`SELECT campaign.id, campaign.name, campaign.status, campaign.advertising_channel_type, campaign.bidding_strategy_type, campaign_budget.amount_micros FROM campaign WHERE campaign.status != 'REMOVED'\`, limit: 500 },
   { name: 'customer', query: \`SELECT customer.id, customer.descriptive_name, customer.currency_code, customer.time_zone FROM customer\`, limit: 1 }
 ]);
 return { campaigns: r.campaigns.error ? [] : r.campaigns.rows, customer: r.customer.error ? null : (r.customer.rows || [])[0], errors: { campaigns: r.campaigns.error || null, customer: r.customer.error || null } };
