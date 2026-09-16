@@ -14,7 +14,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import type { OAuthClientProvider } from "@modelcontextprotocol/sdk/client/auth.js";
 import type { CapabilityDef } from "./capabilities";
-import { EnvTokenStore, NotFairOAuthProvider } from "./oauth";
+import { EnvTokenStore, NotFairOAuthProvider, SupabaseTokenStore } from "./oauth";
+import { createSupabaseAdminClient } from "@/lib/db/supabase-admin";
 
 export interface NotFairSearchResult {
   workflowId?: string;
@@ -39,7 +40,29 @@ export class NotFairError extends Error {
 }
 
 export function notfairConfigured() {
-  return Boolean(process.env.NOTFAIR_MCP_URL && (process.env.NOTFAIR_API_KEY || process.env.NOTFAIR_OAUTH_TOKENS || process.env.NOTFAIR_OAUTH_CLIENT));
+  return Boolean(process.env.NOTFAIR_MCP_URL && (process.env.NOTFAIR_API_KEY || process.env.NOTFAIR_OAUTH_TOKENS || process.env.NOTFAIR_OAUTH_CLIENT || supabaseTokenStoreConfigured()));
+}
+
+/** Service-role Supabase + an organization to scope tokens to — what the deployed browser OAuth flow (authorize/callback routes) always writes to. */
+function supabaseTokenStoreConfigured() {
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.ADPILOT_ORGANIZATION_ID);
+}
+
+/**
+ * Build the default auth provider for a deployed instance: prefer OAuth
+ * material explicitly set via environment variables (local dev / CLI
+ * override), otherwise fall back to the Supabase-backed store the
+ * browser-based authorize/callback routes always write to.
+ */
+function defaultAuthProvider(): OAuthClientProvider | undefined {
+  if (process.env.NOTFAIR_OAUTH_TOKENS || process.env.NOTFAIR_OAUTH_CLIENT) {
+    return new NotFairOAuthProvider({ store: new EnvTokenStore() });
+  }
+  if (supabaseTokenStoreConfigured()) {
+    const store = new SupabaseTokenStore(createSupabaseAdminClient(), process.env.ADPILOT_ORGANIZATION_ID as string);
+    return new NotFairOAuthProvider({ store });
+  }
+  return undefined;
 }
 
 export class NotFairClient {
@@ -52,7 +75,7 @@ export class NotFairClient {
   constructor(opts: NotFairClientOptions = {}) {
     this.url = opts.url ?? process.env.NOTFAIR_MCP_URL;
     this.apiKey = opts.apiKey ?? process.env.NOTFAIR_API_KEY;
-    this.authProvider = opts.authProvider ?? (!this.apiKey && (process.env.NOTFAIR_OAUTH_TOKENS || process.env.NOTFAIR_OAUTH_CLIENT) ? new NotFairOAuthProvider({ store: new EnvTokenStore() }) : undefined);
+    this.authProvider = opts.authProvider ?? (this.apiKey ? undefined : defaultAuthProvider());
   }
 
   /** URL + (OAuth tokens or bearer token) present. */
