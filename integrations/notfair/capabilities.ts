@@ -12,7 +12,7 @@
  * not assumed to exist. See docs/integrations/notfair.md for the full audit.
  */
 
-export const NOTFAIR_VERIFIED_AT = "2026-09-14";
+export const NOTFAIR_VERIFIED_AT = "2026-09-16";
 
 export const NOTFAIR_PLATFORMS = [
   "google_ads",
@@ -32,6 +32,7 @@ export type NotFairPlatform = (typeof NOTFAIR_PLATFORMS)[number];
 export const NOTFAIR_CONNECTED_AT_VERIFICATION: Array<{ platform: NotFairPlatform; primaryAccountId: string }> = [
   { platform: "google_ads", primaryAccountId: "2175229247" },
   { platform: "google_analytics", primaryAccountId: "properties/454640302" },
+  { platform: "search_console", primaryAccountId: "https://www.sketchdeck.ai/" },
 ];
 
 export type Executor = "executeRead" | "execute";
@@ -110,6 +111,20 @@ export const READ = {
     purpose: "GA4 property discovery / health check.",
     write: false,
   },
+  searchConsoleRunScript: {
+    id: "search_console_runScript",
+    platform: "search_console",
+    executor: "executeRead",
+    purpose: "Search Console daily clicks/impressions/position for the site, queries and pages (search.queryParallel, dataState 'all').",
+    write: false,
+  },
+  searchConsoleListProperties: {
+    id: "search_console_listProperties",
+    platform: "search_console",
+    executor: "executeRead",
+    purpose: "Search Console property discovery / health check.",
+    write: false,
+  },
 } as const satisfies Record<string, CapabilityDef>;
 
 /**
@@ -157,7 +172,8 @@ export const WRITE = {
 
 /** What the connection can and cannot provide (documented limitations). */
 export const NOTFAIR_LIMITATIONS = [
-  "Only Google Ads and Google Analytics 4 are connected in the SketchDeck workspace. Meta, LinkedIn, X, Reddit, TikTok and Search Console are supported by NotFair but are NOT connected — AdPilot reports them as not connected rather than fabricating data.",
+  "Google Ads, Google Analytics 4 and Search Console (https://www.sketchdeck.ai/) are connected in the SketchDeck workspace. Meta, LinkedIn, X, Reddit and TikTok are supported by NotFair but are NOT connected — AdPilot reports them as not connected rather than fabricating data.",
+  "Each GAQL result is capped by a ~40KB byte budget (truncationReason 'byte_budget'): campaign-day rows fit 35 days per call, ad-day rows 7 days, keyword/search-term rows one day — AdPilot batches those per day with gaqlParallel and returns compact tuples.",
   "Google Ads creatives are Responsive Search Ads: headlines, descriptions, final URLs and per-asset performance labels are available. No image_ad/video_ad rows exist in the account; image assets exist in the asset library (tpc.googlesyndication.com URLs) and are surfaced as assets, not ad previews.",
   "NotFair exposes no ad-preview renderer. AdPilot renders RSA text previews itself and shows real image-asset URLs when the asset is linked to a campaign.",
   "Google Ads 'conversions' are platform conversions (Booked demo meeting, Contact page form, Calls from ads…). MQL/SQL/opportunity/pipeline/revenue require CRM (HubSpot) attribution and are not provided by NotFair.",

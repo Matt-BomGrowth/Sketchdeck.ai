@@ -8,7 +8,7 @@ export interface NavItem {
 }
 
 export const PRIMARY_NAV: NavItem[] = [
-  { href: "/", label: "Command Center", icon: Gauge },
+  { href: "/", label: "Overview", icon: Gauge },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/pipeline", label: "Pipeline", icon: TrendingUp },
   { href: "/creatives", label: "Creatives", icon: ImageIcon },

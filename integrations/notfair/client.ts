@@ -33,14 +33,21 @@ export interface NotFairClientOptions {
 }
 
 export class NotFairError extends Error {
-  constructor(message: string, readonly code?: string, readonly details?: unknown) {
+  constructor(
+    message: string,
+    readonly code?: string,
+    readonly details?: unknown,
+  ) {
     super(message);
     this.name = "NotFairError";
   }
 }
 
 export function notfairConfigured() {
-  return Boolean(process.env.NOTFAIR_MCP_URL && (process.env.NOTFAIR_API_KEY || process.env.NOTFAIR_OAUTH_TOKENS || process.env.NOTFAIR_OAUTH_CLIENT || supabaseTokenStoreConfigured()));
+  return Boolean(
+    process.env.NOTFAIR_MCP_URL &&
+    (process.env.NOTFAIR_API_KEY || process.env.NOTFAIR_OAUTH_TOKENS || process.env.NOTFAIR_OAUTH_CLIENT || supabaseTokenStoreConfigured()),
+  );
 }
 
 /** Service-role Supabase + an organization to scope tokens to — what the deployed browser OAuth flow (authorize/callback routes) always writes to. */
@@ -86,7 +93,8 @@ export class NotFairClient {
   private async connect(): Promise<Client> {
     if (this.client) return this.client;
     if (!this.url) throw new NotFairError("NOTFAIR_MCP_URL is not configured.", "not_configured");
-    if (!this.apiKey && !this.authProvider) throw new NotFairError("NotFair is not authorized. Run `npm run notfair:auth` and set NOTFAIR_OAUTH_TOKENS / NOTFAIR_OAUTH_CLIENT.", "not_configured");
+    if (!this.apiKey && !this.authProvider)
+      throw new NotFairError("NotFair is not authorized. Run `npm run notfair:auth` and set NOTFAIR_OAUTH_TOKENS / NOTFAIR_OAUTH_CLIENT.", "not_configured");
     const headers: Record<string, string> = {};
     if (this.apiKey) headers.Authorization = `Bearer ${this.apiKey}`;
     this.transport = new StreamableHTTPClientTransport(new URL(this.url), { requestInit: { headers }, authProvider: this.authProvider });
@@ -105,7 +113,10 @@ export class NotFairClient {
     const client = await this.connect();
     const res = await client.callTool({ name: tool, arguments: args });
     const content = (res.content ?? []) as Array<{ type: string; text?: string }>;
-    const text = content.filter((c) => c.type === "text" && typeof c.text === "string").map((c) => c.text as string).join("\n");
+    const text = content
+      .filter((c) => c.type === "text" && typeof c.text === "string")
+      .map((c) => c.text as string)
+      .join("\n");
     if (res.isError) throw new NotFairError(text || `NotFair ${tool} failed`, "tool_error");
     if (res.structuredContent) return res.structuredContent as T;
     try {
@@ -157,6 +168,18 @@ export class NotFairClient {
       ...(options.propertyId ? { propertyId: options.propertyId } : {}),
     });
     if (!res.ok || res.result === undefined) throw new NotFairError("GA4 runScript failed", "script_error", res.error ?? res);
+    return res.result;
+  }
+
+  /** Run a Search Console script. Returns the script's `result`. */
+  async runSearchConsoleScript<T = unknown>(code: string, options: { siteUrl?: string; timeoutMs?: number } = {}): Promise<T> {
+    const res = await this.executeRead<{ ok: boolean; result?: T; error?: unknown; timedOut?: boolean }>("search_console_runScript", {
+      code,
+      timeoutMs: options.timeoutMs ?? 45000,
+      ...(options.siteUrl ? { siteUrl: options.siteUrl } : {}),
+    });
+    if (!res.ok || res.result === undefined) throw new NotFairError("Search Console runScript failed", "script_error", res.error ?? res);
+    if (res.timedOut) throw new NotFairError("Search Console runScript timed out", "timeout");
     return res.result;
   }
 }

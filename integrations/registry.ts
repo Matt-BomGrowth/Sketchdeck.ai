@@ -1,5 +1,5 @@
 import type { IntegrationStatus } from "@/types/domain";
-import type { AdPlatformConnector, Connector, CrmConnector } from "./types";
+import type { AdPlatformConnector, AnalyticsConnector, Connector, CrmConnector, SearchConnector } from "./types";
 import { NotFairGoogleAdsConnector } from "./notfair/connector";
 import { MetaAdsConnector } from "./meta/connector";
 import { LinkedInAdsConnector } from "./linkedin/connector";
@@ -29,6 +29,14 @@ export function crmConnectors(): CrmConnector[] {
   return [new HubSpotConnector()];
 }
 
+export function analyticsConnectors(): AnalyticsConnector[] {
+  return [new Ga4Connector()];
+}
+
+export function searchConnectors(): SearchConnector[] {
+  return [new SearchConsoleConnector()];
+}
+
 /**
  * Check every integration independently. A failure in one never affects the
  * others — the dashboard keeps showing whatever is healthy.
@@ -46,6 +54,15 @@ export async function checkAllIntegrations(): Promise<IntegrationStatus[]> {
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error(`Health check timed out after ${ms}ms`)), ms);
-    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
   });
 }

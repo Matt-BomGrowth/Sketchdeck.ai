@@ -14,23 +14,11 @@ export type DataMode = "demo" | "live";
 
 export type CampaignStatus = "active" | "paused" | "ended" | "draft";
 
-export type CampaignObjective =
-  | "lead_gen"
-  | "demo_requests"
-  | "brand"
-  | "retargeting"
-  | "awareness"
-  | "competitor_conquest";
+export type CampaignObjective = "lead_gen" | "demo_requests" | "brand" | "retargeting" | "awareness" | "competitor_conquest";
 
 /** How a campaign was designed to perform. Used only by the demo engine. */
 export type PerformanceProfile =
-  | "high_performing"
-  | "average"
-  | "underperforming"
-  | "fatiguing"
-  | "high_ctr_poor_quality"
-  | "low_ctr_excellent_pipeline"
-  | "high_cpl_excellent_sql";
+  "high_performing" | "average" | "underperforming" | "fatiguing" | "high_ctr_poor_quality" | "low_ctr_excellent_pipeline" | "high_cpl_excellent_sql";
 
 export interface Organization {
   id: string;
@@ -104,10 +92,10 @@ export interface MetricTotals {
 export type CreativeType = "text" | "image" | "video" | "carousel" | "document";
 
 export type CreativeAssetStatus =
-  | "asset"       // full media asset URL available
-  | "preview"     // only a platform preview URL is available
+  | "asset" // full media asset URL available
+  | "preview" // only a platform preview URL is available
   | "unavailable" // no media accessible through current permissions
-  | "demo";       // demo-mode creative; intentionally no asset
+  | "demo"; // demo-mode creative; intentionally no asset
 
 export interface Creative {
   id: string;
@@ -138,27 +126,14 @@ export interface CreativeDailyMetric extends Omit<DailyMetric, "campaignId"> {
   creativeId: string;
 }
 
-export type AudienceDimension =
-  | "industry"
-  | "company_size"
-  | "job_title"
-  | "seniority"
-  | "geography";
+export type AudienceDimension = "industry" | "company_size" | "job_title" | "seniority" | "geography";
 
 export interface AudienceSegmentMetric extends MetricTotals {
   dimension: AudienceDimension;
   value: string;
 }
 
-export type FunnelStage =
-  | "impressions"
-  | "clicks"
-  | "leads"
-  | "mqls"
-  | "sqls"
-  | "opportunities"
-  | "pipeline"
-  | "revenue";
+export type FunnelStage = "impressions" | "clicks" | "leads" | "mqls" | "sqls" | "opportunities" | "pipeline" | "revenue";
 
 export interface FunnelStageSummary {
   stage: FunnelStage;
@@ -214,21 +189,9 @@ export interface FatigueThresholds {
 }
 
 export type RecommendationType =
-  | "budget_increase"
-  | "budget_decrease"
-  | "pause_campaign"
-  | "rotate_creative"
-  | "audience_shift"
-  | "bid_adjustment"
-  | "investigate";
+  "budget_increase" | "budget_decrease" | "pause_campaign" | "rotate_creative" | "audience_shift" | "bid_adjustment" | "investigate";
 
-export type RecommendationStatus =
-  | "pending"
-  | "approved"
-  | "modified"
-  | "rejected"
-  | "executed"
-  | "measured";
+export type RecommendationStatus = "pending" | "approved" | "modified" | "rejected" | "executed" | "measured";
 
 export interface ExpectedImpact {
   pipelineLow: number;
@@ -259,14 +222,7 @@ export interface Recommendation {
   scanRunId?: string;
 }
 
-export type ActionStatus =
-  | "pending_approval"
-  | "approved"
-  | "executing"
-  | "executed"
-  | "failed"
-  | "rejected"
-  | "measured";
+export type ActionStatus = "pending_approval" | "approved" | "executing" | "executed" | "failed" | "rejected" | "measured";
 
 export interface OptimizationAction {
   id: string;
@@ -323,20 +279,9 @@ export interface AuditLog {
   createdAt: string;
 }
 
-export type IntegrationKey =
-  | "notfair"
-  | "google_ads"
-  | "meta"
-  | "linkedin"
-  | "hubspot"
-  | "ga4"
-  | "search_console";
+export type IntegrationKey = "notfair" | "google_ads" | "meta" | "linkedin" | "hubspot" | "ga4" | "search_console";
 
-export type IntegrationHealth =
-  | "connected"
-  | "connection_issue"
-  | "not_configured"
-  | "demo";
+export type IntegrationHealth = "connected" | "connection_issue" | "not_configured" | "demo";
 
 export interface IntegrationStatus {
   key: IntegrationKey;
@@ -356,4 +301,91 @@ export interface AutomationPolicy {
   approvalRequiredAbove: number;
   /** Master switch: when false every real action requires approval. */
   autoExecuteEnabled: boolean;
+}
+
+// ───────────────────────── Channel detail (redesign) ─────────────────────────
+
+export type KeywordMatchType = "EXACT" | "PHRASE" | "BROAD" | "UNSPECIFIED";
+
+/** One day of a Google Ads keyword (ad group criterion). */
+export interface KeywordDailyMetric {
+  campaignId: string;
+  adGroupExternalId: string;
+  adGroupName: string;
+  adGroupStatus: CampaignStatus;
+  externalId: string;
+  keywordText: string;
+  matchType: KeywordMatchType;
+  status: CampaignStatus;
+  qualityScore?: number;
+  date: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  conversionValue: number;
+  topImpressionPct?: number;
+  searchImpressionShare?: number;
+}
+
+export type SearchTermStatus = "ADDED" | "EXCLUDED" | "ADDED_EXCLUDED" | "NONE" | "UNKNOWN";
+
+/** One day of a Google Ads search term (what people actually typed). */
+export interface SearchTermDailyMetric {
+  campaignId: string;
+  adGroupExternalId: string;
+  adGroupName: string;
+  searchTerm: string;
+  status: SearchTermStatus;
+  keywordText: string;
+  matchType: KeywordMatchType;
+  date: string;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  conversionValue: number;
+}
+
+export type Ga4Dimension = "channel" | "landing_page" | "key_event";
+
+/**
+ * One GA4 day for one dimension value. For `key_event`, `value` is the
+ * default channel group and `subValue` the event name.
+ */
+export interface Ga4DailyMetric {
+  date: string;
+  dimension: Ga4Dimension;
+  value: string;
+  subValue: string;
+  sessions: number;
+  users: number;
+  newUsers: number;
+  engagedSessions: number;
+  keyEvents: number;
+}
+
+export type SearchConsoleDimension = "site" | "query" | "page";
+
+/** One Search Console day for the whole site, a query, or a page. */
+export interface SearchConsoleDailyMetric {
+  date: string;
+  dimension: SearchConsoleDimension;
+  value: string;
+  clicks: number;
+  impressions: number;
+  /** Average position that day (undefined when there were no impressions). */
+  position?: number;
+}
+
+export type CrmStage = "lead" | "mql" | "sql" | "opportunity" | "closed_won" | "closed_lost";
+
+/** CRM lifecycle / deal events per day and original traffic source. */
+export interface CrmFunnelDailyMetric {
+  date: string;
+  /** HubSpot original source, e.g. PAID_SEARCH, ORGANIC_SEARCH, DIRECT_TRAFFIC. */
+  source: string;
+  stage: CrmStage;
+  count: number;
+  amount: number;
 }

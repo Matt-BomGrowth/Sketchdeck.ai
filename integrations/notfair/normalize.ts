@@ -3,8 +3,15 @@
  * AdPilot's platform-neutral model.
  */
 
-import type { CampaignStatus } from "@/types/domain";
-import type { NormalizedCampaign, NormalizedCampaignMetric, NormalizedCreative, NormalizedCreativeMetric } from "@/integrations/types";
+import type { CampaignStatus, KeywordMatchType, SearchTermStatus } from "@/types/domain";
+import type {
+  NormalizedCampaign,
+  NormalizedCampaignMetric,
+  NormalizedCreative,
+  NormalizedCreativeMetric,
+  NormalizedKeywordMetric,
+  NormalizedSearchTermMetric,
+} from "@/integrations/types";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Row = Record<string, any>;
@@ -137,7 +144,11 @@ export function normalizeCreatives(input: CreativeInput): NormalizedCreative[] {
         type: "text",
         headline: h?.text ?? "",
         primaryText: d?.text ?? "",
-        description: descriptions.map((x) => x.text).filter(Boolean).slice(0, 4).join(" | "),
+        description: descriptions
+          .map((x) => x.text)
+          .filter(Boolean)
+          .slice(0, 4)
+          .join(" | "),
         cta: undefined,
         assetStatus: "unavailable",
       });
@@ -255,5 +266,74 @@ export function normalizeImageAssets(rows: Row[]) {
       height: Number(r.asset.image_asset.full_size.height_pixels ?? 0),
       mimeType: String(r.asset.image_asset.mime_type_name ?? ""),
       platform: "google" as const,
+    }));
+}
+
+// ───────────────────────── Keywords / search terms ─────────────────────────
+
+function matchType(v: unknown): KeywordMatchType {
+  const s = String(v ?? "").toUpperCase();
+  return s === "EXACT" || s === "PHRASE" || s === "BROAD" ? s : "UNSPECIFIED";
+}
+
+function optNumber(v: unknown): number | undefined {
+  if (v === null || v === undefined || v === "") return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+function num(v: unknown): number {
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Rows are the compact tuples produced by `keywordDailyScript`. */
+export function normalizeKeywordDaily(rows: unknown[][]): NormalizedKeywordMetric[] {
+  return rows
+    .filter((t) => Array.isArray(t) && t.length >= 15 && t[0] && t[4] && t[9])
+    .map((t) => ({
+      externalCampaignId: String(t[0]),
+      adGroupExternalId: String(t[1]),
+      adGroupName: String(t[2] ?? ""),
+      adGroupStatus: mapStatus(String(t[3] ?? "")),
+      externalId: String(t[4]),
+      keywordText: String(t[5] ?? ""),
+      matchType: matchType(t[6]),
+      status: mapStatus(String(t[7] ?? "")),
+      qualityScore: optNumber(t[8]),
+      date: String(t[9]),
+      spend: Math.round(num(t[10]) * 100) / 100,
+      impressions: num(t[11]),
+      clicks: num(t[12]),
+      conversions: num(t[13]),
+      conversionValue: num(t[14]),
+      topImpressionPct: optNumber(t[15]),
+      searchImpressionShare: optNumber(t[16]),
+    }));
+}
+
+function searchTermStatus(v: unknown): SearchTermStatus {
+  const s = String(v ?? "").toUpperCase();
+  return s === "ADDED" || s === "EXCLUDED" || s === "ADDED_EXCLUDED" || s === "NONE" ? s : "UNKNOWN";
+}
+
+/** Rows are the compact tuples produced by `searchTermDailyScript`. */
+export function normalizeSearchTermDaily(rows: unknown[][]): NormalizedSearchTermMetric[] {
+  return rows
+    .filter((t) => Array.isArray(t) && t.length >= 13 && t[0] && t[3] && t[7])
+    .map((t) => ({
+      externalCampaignId: String(t[0]),
+      adGroupExternalId: String(t[1]),
+      adGroupName: String(t[2] ?? ""),
+      searchTerm: String(t[3]),
+      status: searchTermStatus(t[4]),
+      keywordText: String(t[5] ?? ""),
+      matchType: matchType(t[6]),
+      date: String(t[7]),
+      spend: Math.round(num(t[8]) * 100) / 100,
+      impressions: num(t[9]),
+      clicks: num(t[10]),
+      conversions: num(t[11]),
+      conversionValue: num(t[12]),
     }));
 }

@@ -4,19 +4,34 @@ import type {
   Campaign,
   Creative,
   CreativeDailyMetric,
+  CrmFunnelDailyMetric,
   DailyBrief,
   DailyMetric,
+  Ga4DailyMetric,
   IntegrationStatus,
+  KeywordDailyMetric,
   OptimizationAction,
   Organization,
   Recommendation,
   ScanRun,
+  SearchConsoleDailyMetric,
+  SearchTermDailyMetric,
 } from "@/types/domain";
 import type { DataRepository, DateRangeQuery, OrgSettings } from "./repository";
 import { DEFAULT_FATIGUE_THRESHOLDS } from "@/agent/detectors/fatigue";
 import { DEFAULT_AUTOMATION_POLICY } from "@/agent/actions/policy";
 import { applyDecision, type DecisionInput } from "@/agent/actions/approval-workflow";
-import type { NormalizedCampaign, NormalizedCampaignMetric, NormalizedCreative, NormalizedCreativeMetric } from "@/integrations/types";
+import type {
+  NormalizedCampaign,
+  NormalizedCampaignMetric,
+  NormalizedCreative,
+  NormalizedCreativeMetric,
+  NormalizedCrmFunnelDaily,
+  NormalizedGa4Daily,
+  NormalizedKeywordMetric,
+  NormalizedSearchConsoleDaily,
+  NormalizedSearchTermMetric,
+} from "@/integrations/types";
 import type { AttributedFunnelRow } from "@/integrations/attribution";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -74,7 +89,14 @@ export class LiveRepository implements DataRepository {
 
   async getLatestDate(): Promise<string> {
     const r = await this.one<Row>(
-      this.db.from("performance_metrics").select("date").eq("organization_id", this.organizationId).eq("entity_type", "campaign").order("date", { ascending: false }).limit(1).maybeSingle(),
+      this.db
+        .from("performance_metrics")
+        .select("date")
+        .eq("organization_id", this.organizationId)
+        .eq("entity_type", "campaign")
+        .order("date", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     );
     if (r?.date) return String(r.date);
     const d = new Date();
@@ -154,7 +176,12 @@ export class LiveRepository implements DataRepository {
 
   async getAudienceSegments(range: DateRangeQuery): Promise<AudienceSegmentMetric[]> {
     const rows = await this.many<Row>(
-      this.db.from("audience_segment_metrics").select("*").eq("organization_id", this.organizationId).lte("window_start", range.end).gte("window_end", range.start),
+      this.db
+        .from("audience_segment_metrics")
+        .select("*")
+        .eq("organization_id", this.organizationId)
+        .lte("window_start", range.end)
+        .gte("window_end", range.start),
     );
     return rows.map((r) => ({
       dimension: r.dimension,
@@ -171,8 +198,105 @@ export class LiveRepository implements DataRepository {
     }));
   }
 
+  /** Paged org-scoped range query (PostgREST returns at most 1000 rows per request). */
+  private async rangeRows(table: string, range: DateRangeQuery, extra?: (q: any) => any): Promise<Row[]> {
+    const out: Row[] = [];
+    const page = 1000;
+    for (let from = 0; ; from += page) {
+      let q = this.db
+        .from(table)
+        .select("*")
+        .eq("organization_id", this.organizationId)
+        .gte("date", range.start)
+        .lte("date", range.end)
+        .order("date")
+        .order("id");
+      if (extra) q = extra(q);
+      const rows = await this.many<Row>(q.range(from, from + page - 1));
+      out.push(...rows);
+      if (rows.length < page) break;
+    }
+    return out;
+  }
+
+  async getKeywordDailyMetrics(range: DateRangeQuery): Promise<KeywordDailyMetric[]> {
+    const rows = await this.rangeRows("google_ads_keyword_metrics", range);
+    return rows.map((r) => ({
+      campaignId: r.campaign_id,
+      adGroupExternalId: r.ad_group_external_id,
+      adGroupName: r.ad_group_name ?? "",
+      adGroupStatus: r.ad_group_status ?? "active",
+      externalId: r.external_id,
+      keywordText: r.keyword_text,
+      matchType: r.match_type ?? "UNSPECIFIED",
+      status: r.status ?? "active",
+      qualityScore: r.quality_score ?? undefined,
+      date: String(r.date),
+      spend: Number(r.spend),
+      impressions: Number(r.impressions),
+      clicks: Number(r.clicks),
+      conversions: Number(r.conversions),
+      conversionValue: Number(r.conversion_value),
+      topImpressionPct: r.top_impression_pct === null ? undefined : Number(r.top_impression_pct),
+      searchImpressionShare: r.search_impression_share === null ? undefined : Number(r.search_impression_share),
+    }));
+  }
+
+  async getSearchTermDailyMetrics(range: DateRangeQuery): Promise<SearchTermDailyMetric[]> {
+    const rows = await this.rangeRows("google_ads_search_term_metrics", range);
+    return rows.map((r) => ({
+      campaignId: r.campaign_id,
+      adGroupExternalId: r.ad_group_external_id,
+      adGroupName: r.ad_group_name ?? "",
+      searchTerm: r.search_term,
+      status: r.status ?? "UNKNOWN",
+      keywordText: r.keyword_text ?? "",
+      matchType: r.match_type ?? "UNSPECIFIED",
+      date: String(r.date),
+      spend: Number(r.spend),
+      impressions: Number(r.impressions),
+      clicks: Number(r.clicks),
+      conversions: Number(r.conversions),
+      conversionValue: Number(r.conversion_value),
+    }));
+  }
+
+  async getGa4Daily(range: DateRangeQuery): Promise<Ga4DailyMetric[]> {
+    const rows = await this.rangeRows("ga4_daily", range);
+    return rows.map((r) => ({
+      date: String(r.date),
+      dimension: r.dimension,
+      value: r.value,
+      subValue: r.sub_value ?? "",
+      sessions: Number(r.sessions),
+      users: Number(r.users),
+      newUsers: Number(r.new_users),
+      engagedSessions: Number(r.engaged_sessions),
+      keyEvents: Number(r.key_events),
+    }));
+  }
+
+  async getSearchConsoleDaily(range: DateRangeQuery): Promise<SearchConsoleDailyMetric[]> {
+    const rows = await this.rangeRows("search_console_daily", range);
+    return rows.map((r) => ({
+      date: String(r.date),
+      dimension: r.dimension,
+      value: r.value ?? "",
+      clicks: Number(r.clicks),
+      impressions: Number(r.impressions),
+      position: r.position === null || r.position === undefined ? undefined : Number(r.position),
+    }));
+  }
+
+  async getCrmFunnelDaily(range: DateRangeQuery): Promise<CrmFunnelDailyMetric[]> {
+    const rows = await this.rangeRows("crm_funnel_daily", range);
+    return rows.map((r) => ({ date: String(r.date), source: r.source, stage: r.stage, count: Number(r.count), amount: Number(r.amount) }));
+  }
+
   async getRecommendations(): Promise<Recommendation[]> {
-    const rows = await this.many<Row>(this.db.from("ai_recommendations").select("*").eq("organization_id", this.organizationId).order("created_at", { ascending: false }).limit(200));
+    const rows = await this.many<Row>(
+      this.db.from("ai_recommendations").select("*").eq("organization_id", this.organizationId).order("created_at", { ascending: false }).limit(200),
+    );
     return rows.map(mapRecommendation);
   }
 
@@ -241,7 +365,9 @@ export class LiveRepository implements DataRepository {
   }
 
   async getActions(): Promise<OptimizationAction[]> {
-    const rows = await this.many<Row>(this.db.from("optimization_actions").select("*").eq("organization_id", this.organizationId).order("created_at", { ascending: false }).limit(200));
+    const rows = await this.many<Row>(
+      this.db.from("optimization_actions").select("*").eq("organization_id", this.organizationId).order("created_at", { ascending: false }).limit(200),
+    );
     return rows.map((r) => ({
       id: r.id,
       organizationId: r.organization_id,
@@ -266,14 +392,22 @@ export class LiveRepository implements DataRepository {
   async saveAction(action: OptimizationAction) {
     const { error } = await this.db
       .from("optimization_actions")
-      .update({ status: action.status, after_value: action.after, actual_impact: action.actualImpact ?? null, executed_at: action.executedAt ?? null, measured_at: action.measuredAt ?? null })
+      .update({
+        status: action.status,
+        after_value: action.after,
+        actual_impact: action.actualImpact ?? null,
+        executed_at: action.executedAt ?? null,
+        measured_at: action.measuredAt ?? null,
+      })
       .eq("id", action.id)
       .eq("organization_id", this.organizationId);
     if (error) throw new Error(error.message);
   }
 
   async getScanRuns(limit = 20): Promise<ScanRun[]> {
-    const rows = await this.many<Row>(this.db.from("scan_runs").select("*").eq("organization_id", this.organizationId).order("started_at", { ascending: false }).limit(limit));
+    const rows = await this.many<Row>(
+      this.db.from("scan_runs").select("*").eq("organization_id", this.organizationId).order("started_at", { ascending: false }).limit(limit),
+    );
     return rows.map((r) => ({
       id: r.id,
       organizationId: r.organization_id,
@@ -307,14 +441,33 @@ export class LiveRepository implements DataRepository {
   }
 
   async getDailyBriefs(limit = 7): Promise<DailyBrief[]> {
-    const rows = await this.many<Row>(this.db.from("daily_briefs").select("*").eq("organization_id", this.organizationId).order("date", { ascending: false }).limit(limit));
-    return rows.map((r) => ({ id: r.id, organizationId: r.organization_id, date: r.date, subject: r.subject, summaryMarkdown: r.summary_markdown, emailHtml: r.email_html, createdAt: r.created_at }));
+    const rows = await this.many<Row>(
+      this.db.from("daily_briefs").select("*").eq("organization_id", this.organizationId).order("date", { ascending: false }).limit(limit),
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      organizationId: r.organization_id,
+      date: r.date,
+      subject: r.subject,
+      summaryMarkdown: r.summary_markdown,
+      emailHtml: r.email_html,
+      createdAt: r.created_at,
+    }));
   }
 
   async saveDailyBrief(brief: DailyBrief) {
     const { error } = await this.db
       .from("daily_briefs")
-      .upsert({ organization_id: this.organizationId, date: brief.date, subject: brief.subject, summary_markdown: brief.summaryMarkdown, email_html: brief.emailHtml }, { onConflict: "organization_id,date" });
+      .upsert(
+        {
+          organization_id: this.organizationId,
+          date: brief.date,
+          subject: brief.subject,
+          summary_markdown: brief.summaryMarkdown,
+          email_html: brief.emailHtml,
+        },
+        { onConflict: "organization_id,date" },
+      );
     if (error) throw new Error(error.message);
   }
 
@@ -324,10 +477,20 @@ export class LiveRepository implements DataRepository {
   }
 
   async saveIntegrationStatus(status: IntegrationStatus) {
-    const { error } = await this.db.from("integrations").upsert(
-      { organization_id: this.organizationId, key: status.key, name: status.name, health: status.health, detail: status.detail, last_sync_at: status.lastSyncAt ?? null, last_error: status.health === "connection_issue" ? status.detail : null },
-      { onConflict: "organization_id,key" },
-    );
+    const { error } = await this.db
+      .from("integrations")
+      .upsert(
+        {
+          organization_id: this.organizationId,
+          key: status.key,
+          name: status.name,
+          health: status.health,
+          detail: status.detail,
+          last_sync_at: status.lastSyncAt ?? null,
+          last_error: status.health === "connection_issue" ? status.detail : null,
+        },
+        { onConflict: "organization_id,key" },
+      );
     if (error) throw new Error(error.message);
   }
 
@@ -347,7 +510,9 @@ export class LiveRepository implements DataRepository {
       source,
       raw: r.raw ?? null,
     }));
-    const data = await this.many<Row>(this.db.from("campaigns").upsert(payload, { onConflict: "organization_id,platform,external_id" }).select("id, external_id, platform"));
+    const data = await this.many<Row>(
+      this.db.from("campaigns").upsert(payload, { onConflict: "organization_id,platform,external_id" }).select("id, external_id, platform"),
+    );
     for (const d of data) ids.set(`${d.platform}:${d.external_id}`, d.id);
     return ids;
   }
@@ -355,7 +520,11 @@ export class LiveRepository implements DataRepository {
   async upsertDailyMetrics(rows: NormalizedCampaignMetric[], campaignIds: Map<string, string>, source: string) {
     const payload = rows
       .map((r) => {
-        const id = campaignIds.get(`google:${r.externalCampaignId}`) ?? campaignIds.get(`meta:${r.externalCampaignId}`) ?? campaignIds.get(`linkedin:${r.externalCampaignId}`) ?? campaignIds.get(r.externalCampaignId);
+        const id =
+          campaignIds.get(`google:${r.externalCampaignId}`) ??
+          campaignIds.get(`meta:${r.externalCampaignId}`) ??
+          campaignIds.get(`linkedin:${r.externalCampaignId}`) ??
+          campaignIds.get(r.externalCampaignId);
         if (!id) return null;
         return {
           organization_id: this.organizationId,
@@ -417,7 +586,9 @@ export class LiveRepository implements DataRepository {
       .filter((x): x is NonNullable<typeof x> => x !== null);
     if (payload.length === 0) return ids;
     void source;
-    const data = await this.many<Row>(this.db.from("creatives").upsert(payload, { onConflict: "organization_id,platform,external_id" }).select("id, external_id, platform"));
+    const data = await this.many<Row>(
+      this.db.from("creatives").upsert(payload, { onConflict: "organization_id,platform,external_id" }).select("id, external_id, platform"),
+    );
     for (const d of data) ids.set(`${d.platform}:${d.external_id}`, d.id);
     return ids;
   }
@@ -425,9 +596,28 @@ export class LiveRepository implements DataRepository {
   async upsertCreativeDailyMetrics(rows: NormalizedCreativeMetric[], creativeIds: Map<string, string>, source: string) {
     const payload = rows
       .map((r) => {
-        const id = creativeIds.get(`google:${r.externalCreativeId}`) ?? creativeIds.get(`meta:${r.externalCreativeId}`) ?? creativeIds.get(`linkedin:${r.externalCreativeId}`);
+        const id =
+          creativeIds.get(`google:${r.externalCreativeId}`) ??
+          creativeIds.get(`meta:${r.externalCreativeId}`) ??
+          creativeIds.get(`linkedin:${r.externalCreativeId}`);
         if (!id) return null;
-        return { organization_id: this.organizationId, entity_type: "creative", entity_id: id, date: r.date, spend: r.spend, impressions: r.impressions, clicks: r.clicks, leads: r.leads, mqls: r.mqls, sqls: r.sqls, opportunities: r.opportunities, pipeline: r.pipeline, revenue: r.revenue, frequency: r.frequency ?? null, source };
+        return {
+          organization_id: this.organizationId,
+          entity_type: "creative",
+          entity_id: id,
+          date: r.date,
+          spend: r.spend,
+          impressions: r.impressions,
+          clicks: r.clicks,
+          leads: r.leads,
+          mqls: r.mqls,
+          sqls: r.sqls,
+          opportunities: r.opportunities,
+          pipeline: r.pipeline,
+          revenue: r.revenue,
+          frequency: r.frequency ?? null,
+          source,
+        };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null);
     for (let i = 0; i < payload.length; i += 500) {
@@ -471,9 +661,161 @@ export class LiveRepository implements DataRepository {
     return payload.length;
   }
 
-  async audit(actor: string, action: string, entityType: string, entityId?: string, details: Record<string, unknown> = {}) {
-    await this.db.from("audit_logs").insert({ organization_id: this.organizationId, actor, action, entity_type: entityType, entity_id: entityId ?? null, details });
+  private async upsertBatched(table: string, payload: Row[], onConflict: string) {
+    for (let i = 0; i < payload.length; i += 500) {
+      const { error } = await this.db.from(table).upsert(payload.slice(i, i + 500), { onConflict });
+      if (error) throw new Error(error.message);
+    }
+    return payload.length;
   }
+
+  private googleCampaignId(campaignIds: Map<string, string>, externalCampaignId: string) {
+    return campaignIds.get(`google:${externalCampaignId}`) ?? campaignIds.get(externalCampaignId);
+  }
+
+  async upsertKeywordDailyMetrics(rows: NormalizedKeywordMetric[], campaignIds: Map<string, string>, source: string) {
+    const payload = rows
+      .map((r) => {
+        const campaignId = this.googleCampaignId(campaignIds, r.externalCampaignId);
+        if (!campaignId) return null;
+        return {
+          organization_id: this.organizationId,
+          campaign_id: campaignId,
+          ad_group_external_id: r.adGroupExternalId,
+          ad_group_name: r.adGroupName,
+          ad_group_status: r.adGroupStatus,
+          external_id: r.externalId,
+          keyword_text: r.keywordText,
+          match_type: r.matchType,
+          status: r.status,
+          quality_score: r.qualityScore ?? null,
+          date: r.date,
+          spend: r.spend,
+          impressions: r.impressions,
+          clicks: r.clicks,
+          conversions: r.conversions,
+          conversion_value: r.conversionValue,
+          top_impression_pct: r.topImpressionPct ?? null,
+          search_impression_share: r.searchImpressionShare ?? null,
+          source,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+    return this.upsertBatched("google_ads_keyword_metrics", payload, "organization_id,ad_group_external_id,external_id,date");
+  }
+
+  async upsertSearchTermDailyMetrics(rows: NormalizedSearchTermMetric[], campaignIds: Map<string, string>, source: string) {
+    const payload = rows
+      .map((r) => {
+        const campaignId = this.googleCampaignId(campaignIds, r.externalCampaignId);
+        if (!campaignId) return null;
+        return {
+          organization_id: this.organizationId,
+          campaign_id: campaignId,
+          ad_group_external_id: r.adGroupExternalId,
+          ad_group_name: r.adGroupName,
+          search_term: r.searchTerm,
+          status: r.status,
+          keyword_text: r.keywordText,
+          match_type: r.matchType,
+          date: r.date,
+          spend: r.spend,
+          impressions: r.impressions,
+          clicks: r.clicks,
+          conversions: r.conversions,
+          conversion_value: r.conversionValue,
+          source,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+    return this.upsertBatched(
+      "google_ads_search_term_metrics",
+      dedupe(payload, (p) => `${p.ad_group_external_id}|${p.search_term}|${p.keyword_text}|${p.match_type}|${p.date}`),
+      "organization_id,ad_group_external_id,search_term,keyword_text,match_type,date",
+    );
+  }
+
+  async upsertGa4Daily(rows: NormalizedGa4Daily[], source: string) {
+    const payload = rows.map((r) => ({
+      organization_id: this.organizationId,
+      date: r.date,
+      dimension: r.dimension,
+      value: r.value,
+      sub_value: r.subValue,
+      sessions: r.sessions,
+      users: r.users,
+      new_users: r.newUsers,
+      engaged_sessions: r.engagedSessions,
+      key_events: r.keyEvents,
+      source,
+    }));
+    return this.upsertBatched(
+      "ga4_daily",
+      dedupe(payload, (p) => `${p.date}|${p.dimension}|${p.value}|${p.sub_value}`),
+      "organization_id,date,dimension,value,sub_value",
+    );
+  }
+
+  async upsertSearchConsoleDaily(rows: NormalizedSearchConsoleDaily[], source: string) {
+    const payload = rows.map((r) => ({
+      organization_id: this.organizationId,
+      date: r.date,
+      dimension: r.dimension,
+      value: r.value,
+      clicks: r.clicks,
+      impressions: r.impressions,
+      position: r.position ?? null,
+      source,
+    }));
+    return this.upsertBatched(
+      "search_console_daily",
+      dedupe(payload, (p) => `${p.date}|${p.dimension}|${p.value}`),
+      "organization_id,date,dimension,value",
+    );
+  }
+
+  async upsertCrmFunnelDaily(rows: NormalizedCrmFunnelDaily[], provider: string) {
+    // Re-runs replace the whole fetched range so stages that no longer occur on a day disappear.
+    const dates = rows.map((r) => r.date);
+    if (dates.length) {
+      const del = await this.db
+        .from("crm_funnel_daily")
+        .delete()
+        .eq("organization_id", this.organizationId)
+        .gte(
+          "date",
+          dates.reduce((a, b) => (a < b ? a : b)),
+        )
+        .lte(
+          "date",
+          dates.reduce((a, b) => (a > b ? a : b)),
+        );
+      if (del.error) throw new Error(del.error.message);
+    }
+    const payload = rows.map((r) => ({
+      organization_id: this.organizationId,
+      date: r.date,
+      source: r.source,
+      stage: r.stage,
+      count: r.count,
+      amount: r.amount,
+      provider,
+    }));
+    return this.upsertBatched("crm_funnel_daily", payload, "organization_id,date,source,stage");
+  }
+
+  async audit(actor: string, action: string, entityType: string, entityId?: string, details: Record<string, unknown> = {}) {
+    await this.db
+      .from("audit_logs")
+      .insert({ organization_id: this.organizationId, actor, action, entity_type: entityType, entity_id: entityId ?? null, details });
+  }
+}
+
+/** Keep the last row per key so a single upsert never carries two rows for the same conflict target. */
+function dedupe<T>(rows: T[], key: (r: T) => string): T[] {
+  const m = new Map<string, T>();
+  for (const r of rows) m.set(key(r), r);
+  return [...m.values()];
 }
 
 function mapMetric(r: Row) {

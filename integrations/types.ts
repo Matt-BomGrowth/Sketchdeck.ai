@@ -1,4 +1,16 @@
-import type { CampaignStatus, Creative, DailyMetric, IntegrationKey, IntegrationStatus, Platform } from "@/types/domain";
+import type {
+  CampaignStatus,
+  Creative,
+  CrmFunnelDailyMetric,
+  DailyMetric,
+  Ga4DailyMetric,
+  IntegrationKey,
+  IntegrationStatus,
+  KeywordDailyMetric,
+  Platform,
+  SearchConsoleDailyMetric,
+  SearchTermDailyMetric,
+} from "@/types/domain";
 
 /** Campaign as returned by a connector before it is stored. */
 export interface NormalizedCampaign {
@@ -32,6 +44,19 @@ export interface NormalizedCreativeMetric extends Omit<DailyMetric, "campaignId"
   externalCreativeId: string;
 }
 
+/** Keyword day keyed by the platform's external campaign id (resolved to a campaign uuid on store). */
+export interface NormalizedKeywordMetric extends Omit<KeywordDailyMetric, "campaignId"> {
+  externalCampaignId: string;
+}
+
+export interface NormalizedSearchTermMetric extends Omit<SearchTermDailyMetric, "campaignId"> {
+  externalCampaignId: string;
+}
+
+export type NormalizedGa4Daily = Ga4DailyMetric;
+export type NormalizedSearchConsoleDaily = SearchConsoleDailyMetric;
+export type NormalizedCrmFunnelDaily = CrmFunnelDailyMetric;
+
 export interface DateRange {
   start: string;
   end: string;
@@ -57,6 +82,19 @@ export interface AdPlatformConnector extends Connector {
   fetchDailyMetrics(range: DateRange): Promise<NormalizedCampaignMetric[]>;
   fetchCreatives(): Promise<NormalizedCreative[]>;
   fetchCreativeDailyMetrics?(range: DateRange): Promise<NormalizedCreativeMetric[]>;
+  /** Search platforms only: keyword-level and search-term-level daily metrics. */
+  fetchKeywordDailyMetrics?(range: DateRange): Promise<NormalizedKeywordMetric[]>;
+  fetchSearchTermDailyMetrics?(range: DateRange): Promise<NormalizedSearchTermMetric[]>;
+}
+
+/** Web analytics (GA4) — sessions, users, engagement and key events by channel, landing page and event. */
+export interface AnalyticsConnector extends Connector {
+  fetchDaily(range: DateRange): Promise<NormalizedGa4Daily[]>;
+}
+
+/** Organic search (Search Console) — clicks, impressions and position for the site, queries and pages. */
+export interface SearchConnector extends Connector {
+  fetchDaily(range: DateRange): Promise<NormalizedSearchConsoleDaily[]>;
 }
 
 export interface CrmFunnelEvent {

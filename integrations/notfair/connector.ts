@@ -1,9 +1,34 @@
 import type { IntegrationStatus } from "@/types/domain";
-import type { AdPlatformConnector, DateRange, NormalizedCampaign, NormalizedCampaignMetric, NormalizedCreative, NormalizedCreativeMetric } from "@/integrations/types";
+import type {
+  AdPlatformConnector,
+  DateRange,
+  NormalizedCampaign,
+  NormalizedCampaignMetric,
+  NormalizedCreative,
+  NormalizedCreativeMetric,
+  NormalizedKeywordMetric,
+  NormalizedSearchTermMetric,
+} from "@/integrations/types";
 import { NotFairClient, NotFairError, getNotFairClient } from "./client";
 import { READ } from "./capabilities";
-import { campaignInventoryScript, creativesScript, dailyAdMetricsScript, dailyCampaignMetricsScript } from "./gaql";
-import { normalizeAdDailyMetrics, normalizeCampaigns, normalizeCreatives, normalizeDailyMetrics } from "./normalize";
+import {
+  campaignInventoryScript,
+  creativesScript,
+  dailyAdMetricsScript,
+  dailyCampaignMetricsScript,
+  keywordDailyScript,
+  searchTermDailyScript,
+  type DailyTupleResult,
+} from "./gaql";
+import {
+  normalizeAdDailyMetrics,
+  normalizeCampaigns,
+  normalizeCreatives,
+  normalizeDailyMetrics,
+  normalizeKeywordDaily,
+  normalizeSearchTermDaily,
+} from "./normalize";
+import { dateRange } from "@/lib/utils/dates";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -17,7 +42,10 @@ export class NotFairGoogleAdsConnector implements AdPlatformConnector {
   name = "NotFair MCP · Google Ads";
   platforms = ["google" as const];
 
-  constructor(private readonly client: NotFairClient = getNotFairClient(), private readonly accountId = process.env.NOTFAIR_GOOGLE_ADS_ACCOUNT_ID) {}
+  constructor(
+    private readonly client: NotFairClient = getNotFairClient(),
+    private readonly accountId = process.env.NOTFAIR_GOOGLE_ADS_ACCOUNT_ID,
+  ) {}
 
   isConfigured() {
     return this.client.isConfigured();
@@ -25,7 +53,12 @@ export class NotFairGoogleAdsConnector implements AdPlatformConnector {
 
   async checkHealth(): Promise<IntegrationStatus> {
     if (!this.isConfigured()) {
-      return { key: this.key, name: this.name, health: "not_configured", detail: "Set NOTFAIR_MCP_URL (and NOTFAIR_API_KEY) to connect the NotFair MCP server." };
+      return {
+        key: this.key,
+        name: this.name,
+        health: "not_configured",
+        detail: "Set NOTFAIR_MCP_URL (and NOTFAIR_API_KEY) to connect the NotFair MCP server.",
+      };
     }
     try {
       const res = await this.client.executeRead<{ accounts: Array<{ id: string; name: string }>; oauthIdentity?: string }>(READ.listConnectedAccounts);
@@ -44,13 +77,17 @@ export class NotFairGoogleAdsConnector implements AdPlatformConnector {
   }
 
   async fetchCampaigns(): Promise<NormalizedCampaign[]> {
-    const res = await this.client.runGoogleAdsScript<{ campaigns: any[]; customer: any; errors: Record<string, unknown> }>(campaignInventoryScript(), { accountId: this.accountId });
+    const res = await this.client.runGoogleAdsScript<{ campaigns: any[]; customer: any; errors: Record<string, unknown> }>(campaignInventoryScript(), {
+      accountId: this.accountId,
+    });
     if (res.errors?.campaigns) throw new NotFairError("Campaign query failed", "gaql", res.errors.campaigns);
     return normalizeCampaigns(res.campaigns, res.customer?.customer?.currency_code ?? "USD");
   }
 
   async fetchDailyMetrics(range: DateRange): Promise<NormalizedCampaignMetric[]> {
-    const rows = await this.fetchChunked(range, 35, (r) => this.client.runGoogleAdsScript<{ rows: any[]; truncated: boolean }>(dailyCampaignMetricsScript(r.start, r.end), { accountId: this.accountId }));
+    const rows = await this.fetchChunked(range, 35, (r) =>
+      this.client.runGoogleAdsScript<{ rows: any[]; truncated: boolean }>(dailyCampaignMetricsScript(r.start, r.end), { accountId: this.accountId }),
+    );
     return normalizeDailyMetrics(rows);
   }
 
@@ -78,14 +115,46 @@ export class NotFairGoogleAdsConnector implements AdPlatformConnector {
     const end = new Date();
     const start = new Date(end);
     start.setUTCDate(start.getUTCDate() - 30);
-    const res = await this.client.runGoogleAdsScript<Record<string, { rows: any[]; error?: unknown }>>(creativesScript(iso(start), iso(end)), { accountId: this.accountId });
+    const res = await this.client.runGoogleAdsScript<Record<string, { rows: any[]; error?: unknown }>>(creativesScript(iso(start), iso(end)), {
+      accountId: this.accountId,
+    });
     if (res.ads?.error) throw new NotFairError("Ad query failed", "gaql", res.ads.error);
-    return normalizeCreatives({ ads: res.ads?.rows ?? [], imageAssets: res.imageAssets?.rows ?? [], videoAssets: res.videoAssets?.rows ?? [], campaignImageLinks: res.campaignImageLinks?.rows ?? [] });
+    return normalizeCreatives({
+      ads: res.ads?.rows ?? [],
+      imageAssets: res.imageAssets?.rows ?? [],
+      videoAssets: res.videoAssets?.rows ?? [],
+      campaignImageLinks: res.campaignImageLinks?.rows ?? [],
+    });
   }
 
   async fetchCreativeDailyMetrics(range: DateRange): Promise<NormalizedCreativeMetric[]> {
-    const rows = await this.fetchChunked(range, 7, (r) => this.client.runGoogleAdsScript<{ rows: any[]; truncated: boolean }>(dailyAdMetricsScript(r.start, r.end), { accountId: this.accountId }));
+    const rows = await this.fetchChunked(range, 7, (r) =>
+      this.client.runGoogleAdsScript<{ rows: any[]; truncated: boolean }>(dailyAdMetricsScript(r.start, r.end), { accountId: this.accountId }),
+    );
     return normalizeAdDailyMetrics(rows);
+  }
+
+  /** Keyword-day rows; 7 days per script call, one GAQL query per day inside (see gaql.ts). */
+  async fetchKeywordDailyMetrics(range: DateRange): Promise<NormalizedKeywordMetric[]> {
+    return normalizeKeywordDaily(await this.fetchDaily(range, "keywords", (days) => keywordDailyScript(days)));
+  }
+
+  async fetchSearchTermDailyMetrics(range: DateRange): Promise<NormalizedSearchTermMetric[]> {
+    return normalizeSearchTermDaily(await this.fetchDaily(range, "search terms", (days) => searchTermDailyScript(days)));
+  }
+
+  private async fetchDaily(range: DateRange, what: string, script: (days: string[]) => string): Promise<unknown[][]> {
+    const out: unknown[][] = [];
+    const days = dateRange(range.start, range.end);
+    for (let i = 0; i < days.length; i += 7) {
+      const batch = days.slice(i, i + 7);
+      const res = await this.client.runGoogleAdsScript<DailyTupleResult>(script(batch), { accountId: this.accountId });
+      const failed = Object.keys(res.errors ?? {});
+      if (failed.length) throw new NotFairError(`${what} query failed for ${failed.join(", ")}`, "gaql", res.errors);
+      if (res.truncatedDays?.length) throw new NotFairError(`${what} response truncated for ${res.truncatedDays.join(", ")}`, "truncated");
+      out.push(...(res.rows ?? []));
+    }
+    return out;
   }
 }
 
@@ -94,7 +163,12 @@ function iso(d: Date) {
 }
 
 function daysBetween(start: string, end: string) {
-  return Math.round((Date.UTC(+end.slice(0, 4), +end.slice(5, 7) - 1, +end.slice(8, 10)) - Date.UTC(+start.slice(0, 4), +start.slice(5, 7) - 1, +start.slice(8, 10))) / 86_400_000) + 1;
+  return (
+    Math.round(
+      (Date.UTC(+end.slice(0, 4), +end.slice(5, 7) - 1, +end.slice(8, 10)) - Date.UTC(+start.slice(0, 4), +start.slice(5, 7) - 1, +start.slice(8, 10))) /
+        86_400_000,
+    ) + 1
+  );
 }
 
 function splitRange(range: DateRange, days: number): DateRange[] {

@@ -56,3 +56,63 @@ const r = await ads.gaqlParallel([
 return { actions: r.actions.error ? [] : r.actions.rows, byCampaign: r.byCampaign.error ? [] : r.byCampaign.rows };
 `;
 }
+
+/**
+ * Keyword-level daily metrics. NotFair caps each GAQL result by byte budget
+ * (~40KB, verified 2026-09-16: a 7-day keyword query returned 66 rows then
+ * truncated), so the script runs one query per day via gaqlParallel and
+ * returns compact tuples. Days that still truncate are reported, never
+ * silently dropped.
+ *
+ * Tuple: [campaignId, adGroupId, adGroupName, adGroupStatus, criterionId,
+ *         keyword, matchType, status, qualityScore, date, cost, impressions,
+ *         clicks, conversions, conversionValue, topImpressionPct, searchImpressionShare]
+ */
+export function keywordDailyScript(days: string[]) {
+  return `
+const days = ${JSON.stringify(days)};
+const q = (d) => \`SELECT ad_group_criterion.criterion_id, ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type, ad_group_criterion.status, ad_group_criterion.quality_info.quality_score, ad_group.id, ad_group.name, ad_group.status, campaign.id, segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions, metrics.conversions_value, metrics.top_impression_percentage, metrics.search_impression_share FROM keyword_view WHERE segments.date = '\${d}' AND ad_group_criterion.status != 'REMOVED'\`;
+const r = await ads.gaqlParallel(days.map((d) => ({ name: d, query: q(d), limit: 10000 })));
+const rows = []; const truncatedDays = []; const errors = {};
+for (const d of days) {
+  const x = r[d];
+  if (!x || x.error) { errors[d] = (x && x.error) || 'missing'; continue; }
+  if (x.truncated) truncatedDays.push(d);
+  for (const row of x.rows || []) {
+    const c = row.ad_group_criterion || {}; const m = row.metrics || {};
+    rows.push([String(row.campaign.id), String(row.ad_group.id), row.ad_group.name || '', row.ad_group.status_name || '', String(c.criterion_id), (c.keyword && c.keyword.text) || '', (c.keyword && c.keyword.match_type_name) || 'UNSPECIFIED', c.status_name || '', c.quality_info ? c.quality_info.quality_score : null, row.segments.date, m.cost_value != null ? m.cost_value : (m.cost_micros || 0) / 1e6, m.impressions || 0, m.clicks || 0, m.conversions || 0, m.conversions_value || 0, m.top_impression_percentage == null ? null : m.top_impression_percentage, m.search_impression_share == null ? null : m.search_impression_share]);
+  }
+}
+return { rows, truncatedDays, errors };
+`;
+}
+
+/**
+ * Search-term daily metrics (same per-day batching as keywords).
+ * Tuple: [campaignId, adGroupId, adGroupName, searchTerm, status, keyword,
+ *         matchType, date, cost, impressions, clicks, conversions, conversionValue]
+ */
+export function searchTermDailyScript(days: string[]) {
+  return `
+const days = ${JSON.stringify(days)};
+const q = (d) => \`SELECT search_term_view.search_term, search_term_view.status, segments.keyword.info.text, segments.keyword.info.match_type, ad_group.id, ad_group.name, campaign.id, segments.date, metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.conversions, metrics.conversions_value FROM search_term_view WHERE segments.date = '\${d}'\`;
+const r = await ads.gaqlParallel(days.map((d) => ({ name: d, query: q(d), limit: 10000 })));
+const rows = []; const truncatedDays = []; const errors = {};
+for (const d of days) {
+  const x = r[d];
+  if (!x || x.error) { errors[d] = (x && x.error) || 'missing'; continue; }
+  if (x.truncated) truncatedDays.push(d);
+  for (const row of x.rows || []) {
+    const s = row.search_term_view || {}; const k = (row.segments.keyword && row.segments.keyword.info) || {}; const m = row.metrics || {};
+    rows.push([String(row.campaign.id), String(row.ad_group.id), row.ad_group.name || '', s.search_term || '', s.status_name || 'UNKNOWN', k.text || '', k.match_type_name || 'UNSPECIFIED', row.segments.date, m.cost_value != null ? m.cost_value : (m.cost_micros || 0) / 1e6, m.impressions || 0, m.clicks || 0, m.conversions || 0, m.conversions_value || 0]);
+  }
+}
+return { rows, truncatedDays, errors };
+`;
+}
+
+export interface DailyTupleResult {
+  rows: unknown[][];
+  truncatedDays: string[];
+  errors: Record<string, unknown>;
+}

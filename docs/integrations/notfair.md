@@ -53,9 +53,19 @@ The asset library contains IMAGE assets with **real, directly loadable URLs** (`
 
 13 conversion actions; primary for goal: **Booked demo meeting**, **Contact page form**, **Calls from ads**. Last 30 days by campaign: Core Phrases 1 booked demo; Competitors 1 email click + 2 phone clicks; Brand 1 booked demo.
 
+### Keywords and search terms (`keyword_view`, `search_term_view` GAQL) — verified 2026-09-16
+
+Keyword rows carry criterion id, text, match type, status, quality score, cost, impressions, clicks, conversions, top-impression % and search impression share; search-term rows carry the term, its status (ADDED / EXCLUDED / NONE), the matched keyword and match type. Each GAQL result is capped by a ~40KB byte budget (`truncationReason: "byte_budget"`; a 7-day keyword query returned 66 rows then stopped), so AdPilot's scripts run **one query per day through `ads.gaqlParallel`** and return compact tuples (7 days → 132 keyword rows and 193 search-term rows, no truncation, ~2.5s). Stored in `google_ads_keyword_metrics` / `google_ads_search_term_metrics`.
+
+### Search Console (`search_console_runScript`) — verified 2026-09-16
+
+Property `https://www.sketchdeck.ai/` is connected. `search.queryParallel` with `dataState: 'all'` returns daily rows for the site (`date`), queries (`date, query`) and pages (`date, page`); stored in `search_console_daily`. As of verification the property reports almost no organic impressions (3 non-zero days in 35, no query rows) — if SketchDeck's organic traffic is verified under a different property (e.g. the domain property `sc-domain:sketchdeck.ai`), select it in NotFair or set `SEARCH_CONSOLE_SITE_URL`.
+
 ### GA4 (`google_analytics_runScript`)
 
 Key events configured: `hubspot_meeting_success`, `hubspot_form_submit`, `email_clicks`, `phone_click`, `purchase`. Source/medium/campaign reports work and expose LinkedIn paid-social campaign names (e.g. `OCT+2025+Ads+|+SketchDeck`, `Impactable+MOF+Ad+Group+|+2026`) even though LinkedIn Ads itself is not connected — useful for session/lead attribution.
+
+GA4 daily detail (verified 2026-09-16): `analytics.runReportParallel` with `date × sessionDefaultChannelGroup` (sessions, totalUsers, newUsers, engagedSessions, keyEvents), `date × landingPage` and `date × eventName × sessionDefaultChannelGroup` — 35 days came back as 247 / 908 / 25 rows in 82KB. Stored in `ga4_daily`.
 
 ## 3. Performance data
 

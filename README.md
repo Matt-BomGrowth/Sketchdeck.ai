@@ -16,7 +16,7 @@ It is not another dashboard and it does not replace Google Ads, Meta, LinkedIn o
 
 | Area | What it answers |
 | --- | --- |
-| **Command Center** | How much are we spending? How much pipeline are we generating? What changed and why? What should we do next? |
+| **Overview** | Every channel side by side vs. the prior period; Google Ads keywords and search terms; GA4; SEO; CRM funnel by source; what needs attention and where the opportunities are. |
 | **Campaigns** | Sortable/filterable table with pipeline ROAS, cost/SQL, health (0–100) and fatigue (0–100) per campaign. |
 | **Pipeline** | The B2B revenue funnel with volume, conversion, cost and value per stage; lead-quality comparison by channel. |
 | **Creatives** | Creative → pipeline ranking (never CTR alone), fatigue, A/B tests, real assets when the platform exposes them. |
@@ -90,7 +90,7 @@ npm run db:migrate   # applies database/migrations/*.sql (schema, indexes, RLS) 
 npm run db:seed      # loads the SketchDeck demo dataset into Postgres (rows tagged source='demo')
 ```
 
-Tables: organizations, users, org_settings, integrations, campaigns, ad_groups, ads, creatives, performance_metrics, contacts, companies, funnel_events, opportunities, pipeline_events, audience_segment_metrics, ai_recommendations, optimization_actions, scan_runs, daily_briefs, audit_logs. Row-level security scopes everything to the user's organization.
+Tables: organizations, users, org_settings, integrations, campaigns, ad_groups, ads, creatives, performance_metrics, contacts, companies, funnel_events, opportunities, pipeline_events, audience_segment_metrics, ai_recommendations, optimization_actions, scan_runs, daily_briefs, audit_logs, plus the channel-detail tables added by `0004_channel_detail.sql`: google_ads_keyword_metrics, google_ads_search_term_metrics, ga4_daily, search_console_daily, crm_funnel_daily. Row-level security scopes everything to the user's organization.
 
 ## Demo mode
 
@@ -128,7 +128,7 @@ Supply the HubSpot Service Key as `HUBSPOT_ACCESS_TOKEN` — in production via V
 
 ### GA4 and Search Console
 
-Both read through NotFair. GA4 is connected and verified. Search Console is supported by NotFair but **not connected in the SketchDeck workspace** — connect it there to enable search-opportunity insights.
+Both read through NotFair and both are connected in the SketchDeck workspace (GA4 property `properties/454640302`, Search Console `https://www.sketchdeck.ai/`). Each scan stores GA4 daily rows by channel, landing page and key event, and Search Console daily rows for the site, top queries and top pages, which feed the Analytics and SEO sections of the Overview. Optional `SEARCH_CONSOLE_SITE_URL` targets a different property (for example a domain property `sc-domain:sketchdeck.ai`).
 
 ## Scheduled jobs
 

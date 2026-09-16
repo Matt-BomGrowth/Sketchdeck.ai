@@ -14,8 +14,9 @@
 
 import type { DataRepository } from "@/lib/data/repository";
 import type { Platform, ScanRun } from "@/types/domain";
-import { adPlatformConnectors, checkAllIntegrations, crmConnectors } from "@/integrations/registry";
+import { adPlatformConnectors, analyticsConnectors, checkAllIntegrations, crmConnectors, searchConnectors } from "@/integrations/registry";
 import { attributeFunnelEvents, derivedSocialCampaigns, spendIndex } from "@/integrations/attribution";
+import { crmFunnelDaily } from "@/integrations/crm-funnel";
 import type { NormalizedCampaignMetric } from "@/integrations/types";
 import { loadSnapshot } from "@/lib/analytics/load-snapshot";
 import { newId } from "@/lib/utils/id";
@@ -78,9 +79,35 @@ export async function runHourlyScan(repo: DataRepository, options: ScanOptions =
         } catch (err) {
           run.errors.push(`${connector.name} creatives: ${errMsg(err)}`);
         }
+        // Search detail (keywords + search terms) for the Google Ads section; a
+        // failure here never blocks campaign-level data.
+        if (connector.fetchKeywordDailyMetrics) {
+          try {
+            const kw = await connector.fetchKeywordDailyMetrics({ start: range.start, end: range.end });
+            const n = await repo.upsertKeywordDailyMetrics(kw, ids, connector.key);
+            log(`${connector.name}: ${n} keyword-day rows`);
+          } catch (err) {
+            run.errors.push(`${connector.name} keywords: ${errMsg(err)}`);
+          }
+        }
+        if (connector.fetchSearchTermDailyMetrics) {
+          try {
+            const st = await connector.fetchSearchTermDailyMetrics({ start: range.start, end: range.end });
+            const n = await repo.upsertSearchTermDailyMetrics(st, ids, connector.key);
+            log(`${connector.name}: ${n} search-term-day rows`);
+          } catch (err) {
+            run.errors.push(`${connector.name} search terms: ${errMsg(err)}`);
+          }
+        }
         for (const p of connector.platforms) if (!run.platformsScanned.includes(p)) run.platformsScanned.push(p);
         log(`${connector.name}: ${campaigns.length} campaigns, ${stored} metric rows, ${creativesStored} creatives`);
-        await repo.saveIntegrationStatus({ key: connector.key, name: connector.name, health: "connected", detail: `Synced ${campaigns.length} campaigns`, lastSyncAt: now.toISOString() });
+        await repo.saveIntegrationStatus({
+          key: connector.key,
+          name: connector.name,
+          health: "connected",
+          detail: `Synced ${campaigns.length} campaigns`,
+          lastSyncAt: now.toISOString(),
+        });
       } catch (err) {
         const message = errMsg(err);
         run.errors.push(`${connector.name}: ${message}`);
@@ -107,8 +134,24 @@ export async function runHourlyScan(repo: DataRepository, options: ScanOptions =
         }
         const report = attributeFunnelEvents(events, campaigns, spendIndex(allMetrics, externalToId));
         const written = await repo.applyFunnelAttribution(report.rows, crm.key);
-        log(`${crm.name}: ${events.length} events → ${written} campaign-days (name ${report.matchedByName}, channel ${report.matchedByChannel}, unattributed ${report.unattributed})`);
-        await repo.saveIntegrationStatus({ key: crm.key, name: crm.name, health: "connected", detail: `${events.length} funnel events; ${report.unattributed} unattributed`, lastSyncAt: now.toISOString() });
+        // The whole funnel by original source (organic, direct, referral, paid…) for the CRM section.
+        try {
+          const daily = crmFunnelDaily(events);
+          const n = await repo.upsertCrmFunnelDaily(daily, crm.key);
+          log(`${crm.name}: ${n} source-day funnel rows`);
+        } catch (err) {
+          run.errors.push(`${crm.name} funnel by source: ${errMsg(err)}`);
+        }
+        log(
+          `${crm.name}: ${events.length} events → ${written} campaign-days (name ${report.matchedByName}, channel ${report.matchedByChannel}, unattributed ${report.unattributed})`,
+        );
+        await repo.saveIntegrationStatus({
+          key: crm.key,
+          name: crm.name,
+          health: "connected",
+          detail: `${events.length} funnel events; ${report.unattributed} unattributed`,
+          lastSyncAt: now.toISOString(),
+        });
       } catch (err) {
         const message = errMsg(err);
         run.errors.push(`${crm.name}: ${message}`);
@@ -116,10 +159,62 @@ export async function runHourlyScan(repo: DataRepository, options: ScanOptions =
       }
     }
 
+    // Web analytics (GA4) and organic search (Search Console): daily detail
+    // for the Analytics and SEO sections. Each is independent.
+    for (const analytics of analyticsConnectors()) {
+      if (!analytics.isConfigured()) {
+        log(`skip ${analytics.name}: not configured`);
+        continue;
+      }
+      try {
+        const rows = await analytics.fetchDaily({ start: range.start, end: range.end });
+        const n = await repo.upsertGa4Daily(rows, analytics.key);
+        log(`${analytics.name}: ${n} daily rows`);
+        await repo.saveIntegrationStatus({
+          key: analytics.key,
+          name: analytics.name,
+          health: "connected",
+          detail: `Synced ${n} daily rows (channels, landing pages, key events)`,
+          lastSyncAt: now.toISOString(),
+        });
+      } catch (err) {
+        const message = errMsg(err);
+        run.errors.push(`${analytics.name}: ${message}`);
+        await repo.saveIntegrationStatus({ key: analytics.key, name: analytics.name, health: "connection_issue", detail: message }).catch(() => undefined);
+      }
+    }
+    for (const search of searchConnectors()) {
+      if (!search.isConfigured()) {
+        log(`skip ${search.name}: not configured`);
+        continue;
+      }
+      try {
+        const rows = await search.fetchDaily({ start: range.start, end: range.end });
+        const n = await repo.upsertSearchConsoleDaily(rows, search.key);
+        log(`${search.name}: ${n} daily rows`);
+        await repo.saveIntegrationStatus({
+          key: search.key,
+          name: search.name,
+          health: "connected",
+          detail: `Synced ${n} daily rows (site, queries, pages)`,
+          lastSyncAt: now.toISOString(),
+        });
+      } catch (err) {
+        const message = errMsg(err);
+        run.errors.push(`${search.name}: ${message}`);
+        await repo.saveIntegrationStatus({ key: search.key, name: search.name, health: "connection_issue", detail: message }).catch(() => undefined);
+      }
+    }
+
     // Independent health for non-ad integrations (CRM, analytics).
     try {
       const statuses = await checkAllIntegrations();
-      for (const s of statuses) if (!run.platformsScanned.length || !["notfair", "meta", "linkedin"].includes(s.key)) await repo.saveIntegrationStatus(s).catch(() => undefined);
+      const synced = new Set<string>(["ga4", "search_console"]);
+      for (const s of statuses) {
+        if (run.platformsScanned.length && ["notfair", "meta", "linkedin"].includes(s.key)) continue;
+        if (synced.has(s.key) && s.health === "connected") continue; // keep the richer "Synced N rows" status from above
+        await repo.saveIntegrationStatus(s).catch(() => undefined);
+      }
     } catch (err) {
       run.errors.push(`integration health: ${errMsg(err)}`);
     }

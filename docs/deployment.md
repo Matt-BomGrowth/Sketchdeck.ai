@@ -60,7 +60,7 @@ If the key was ever shared in a chat or ticket, rotate it in HubSpot, update the
 ## 4. Supabase (for live mode)
 
 1. Create a Supabase project; copy Project URL, anon key and service-role key into the Vercel variables above; copy the connection string to `DATABASE_URL`.
-2. Apply `database/migrations/*.sql` in order (Supabase SQL editor, or `npm run db:migrate` from any machine with `DATABASE_URL`).
+2. Apply `database/migrations/*.sql` in order (Supabase SQL editor, or `npm run db:migrate` from any machine with `DATABASE_URL`). When a new migration lands (for example `0004_channel_detail.sql`, which adds the keyword, search-term, GA4, Search Console and CRM-by-source tables behind the Overview), paste just that file into the SQL editor and run it — earlier ones are already applied and must not be re-run.
 3. Insert the organization row and add users to `users (id, organization_id, email, role)` with their Supabase auth ids; put the organization id in `ADPILOT_ORGANIZATION_ID`.
 4. Optional: `npm run db:seed` loads the SketchDeck demo dataset (rows tagged `source='demo'`).
 
