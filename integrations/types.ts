@@ -67,6 +67,8 @@ export interface CrmFunnelEvent {
   amount?: number;
   campaignName?: string;
   source?: string;
+  /** HubSpot "Original Traffic Source Drill-Down 1" — for PAID_SOCIAL this is the network (e.g. "linkedin"). */
+  sourceDetail?: string;
   jobTitle?: string;
   companySize?: string;
   industry?: string;

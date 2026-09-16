@@ -159,3 +159,17 @@ describe("buildBudgetPlan", () => {
     expect(small.bottom.every((b) => !topIds.has(b.campaign.id))).toBe(true);
   });
 });
+
+describe("buildBudgetPlan with spend-less campaigns", () => {
+  it("never scales up or cuts a campaign that has no budget and no spend (e.g. known only from CRM attribution)", () => {
+    const placeholder = {
+      campaign: makeCampaign({ id: "cmp_hubspot", name: "Q3 ABM | VP Marketing", dailyBudget: 0, status: "active", platform: "linkedin" }),
+      // Great funnel numbers but no cost data: must not become a "top performer" to fund.
+      totals: makeTotals({ spend: 0, leads: 30, mqls: 20, sqls: 12, opportunities: 6, pipeline: 300_000, revenue: 60_000 }),
+    };
+    const plan = buildBudgetPlan([...items, placeholder], sumTotals([...items, placeholder].map((i) => i.totals)));
+    const touched = [...plan.top, ...plan.bottom, ...plan.increases, ...plan.decreases].map((x) => ("campaign" in x ? x.campaign.id : (x as { campaignId: string }).campaignId));
+    expect(touched).not.toContain("cmp_hubspot");
+    expect(plan.top).toHaveLength(3);
+  });
+});

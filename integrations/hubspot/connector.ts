@@ -129,6 +129,7 @@ export class HubSpotConnector implements CrmConnector {
             // Drill-down 2 holds the campaign/ad-group label for PAID_SEARCH / PAID_SOCIAL originals.
             campaignName: p.hs_analytics_first_touch_converting_campaign ?? p.hs_analytics_source_data_2 ?? undefined,
             source: p.hs_analytics_source ?? undefined,
+            sourceDetail: p.hs_analytics_source_data_1 ?? undefined,
             jobTitle: p.jobtitle ?? undefined,
             industry: p.industry ?? undefined,
             country: p.country ?? undefined,
@@ -144,7 +145,7 @@ export class HubSpotConnector implements CrmConnector {
     do {
       const body: Record<string, unknown> = {
         filterGroups: [{ filters: [{ propertyName: "createdate", operator: "BETWEEN", value: String(from), highValue: String(to) }] }],
-        properties: ["dealname", "amount", "amount_in_home_currency", "dealstage", "closedate", "hs_is_closed_won", "hs_is_closed_lost", "hs_analytics_source", "hs_analytics_source_data_2"],
+        properties: ["dealname", "amount", "amount_in_home_currency", "dealstage", "closedate", "hs_is_closed_won", "hs_is_closed_lost", "hs_analytics_source", "hs_analytics_source_data_1", "hs_analytics_source_data_2"],
         limit: 100,
         after,
       };
@@ -160,6 +161,7 @@ export class HubSpotConnector implements CrmConnector {
           amount: p.amount_in_home_currency ? Number(p.amount_in_home_currency) : p.amount ? Number(p.amount) : undefined,
           campaignName: p.hs_analytics_source_data_2 ?? undefined,
           source: p.hs_analytics_source ?? undefined,
+          sourceDetail: p.hs_analytics_source_data_1 ?? undefined,
         });
       }
       after = page.paging?.next?.after;

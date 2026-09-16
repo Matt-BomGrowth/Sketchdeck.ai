@@ -15,7 +15,7 @@
 import type { DataRepository } from "@/lib/data/repository";
 import type { Platform, ScanRun } from "@/types/domain";
 import { adPlatformConnectors, checkAllIntegrations, crmConnectors } from "@/integrations/registry";
-import { attributeFunnelEvents, spendIndex } from "@/integrations/attribution";
+import { attributeFunnelEvents, derivedSocialCampaigns, spendIndex } from "@/integrations/attribution";
 import type { NormalizedCampaignMetric } from "@/integrations/types";
 import { loadSnapshot } from "@/lib/analytics/load-snapshot";
 import { newId } from "@/lib/utils/id";
@@ -96,7 +96,15 @@ export async function runHourlyScan(repo: DataRepository, options: ScanOptions =
       }
       try {
         const events = await crm.fetchFunnelEvents({ start: range.start, end: range.end });
-        const campaigns = await repo.getCampaigns();
+        let campaigns = await repo.getCampaigns();
+        // Paid-social campaigns the CRM attributes to but no ad connector supplies
+        // (e.g. LinkedIn Ads synced into HubSpot) become spend-less placeholders.
+        const derived = derivedSocialCampaigns(events, campaigns, new Set(run.platformsScanned));
+        if (derived.length) {
+          await repo.upsertCampaigns(derived, crm.key);
+          campaigns = await repo.getCampaigns();
+          log(`${crm.name}: ${derived.length} campaign(s) known only from CRM attribution added without spend data`);
+        }
         const report = attributeFunnelEvents(events, campaigns, spendIndex(allMetrics, externalToId));
         const written = await repo.applyFunnelAttribution(report.rows, crm.key);
         log(`${crm.name}: ${events.length} events → ${written} campaign-days (name ${report.matchedByName}, channel ${report.matchedByChannel}, unattributed ${report.unattributed})`);

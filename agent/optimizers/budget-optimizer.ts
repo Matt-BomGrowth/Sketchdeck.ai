@@ -94,7 +94,9 @@ export function buildBudgetPlan(
 ): BudgetPlan {
   const reallocationPct = options.reallocationPct ?? 0.2;
   const horizonDays = options.horizonDays ?? 30;
-  const ranked = rankCampaigns(items, benchmark);
+  // A campaign with no budget and no spend (e.g. one known only from CRM
+  // attribution) has nothing to move in either direction.
+  const ranked = rankCampaigns(items.filter((i) => i.campaign.dailyBudget > 0 || i.totals.spend > 0), benchmark);
   // Campaigns with critical fatigue are never scaled up, however good their trailing numbers.
   const top = topN(ranked, options.topCount ?? 3, options.excludeFromTop);
   const topIds = new Set(top.map((t) => t.campaign.id));

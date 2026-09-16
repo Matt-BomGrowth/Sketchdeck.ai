@@ -20,7 +20,7 @@
  */
 
 import type { Campaign, Platform } from "@/types/domain";
-import type { CrmFunnelEvent, NormalizedCampaignMetric } from "./types";
+import type { CrmFunnelEvent, NormalizedCampaign, NormalizedCampaignMetric } from "./types";
 
 export interface AttributedFunnelRow {
   campaignId: string;
@@ -57,12 +57,51 @@ function platformFor(e: CrmFunnelEvent): Platform | undefined {
   const src = (e.source ?? "").toUpperCase();
   if (src === "PAID_SEARCH") return "google";
   if (src === "PAID_SOCIAL") {
-    const label = normalizeLabel(e.campaignName ?? "");
-    if (/linkedin/.test(label)) return "linkedin";
-    if (/facebook|instagram|meta/.test(label)) return "meta";
+    // Drill-down 1 names the network for paid social; the campaign label is the fallback hint.
+    const hint = normalizeLabel(`${e.sourceDetail ?? ""} ${e.campaignName ?? ""}`);
+    if (/linkedin/.test(hint)) return "linkedin";
+    if (/facebook|instagram|meta/.test(hint)) return "meta";
     return undefined; // ambiguous paid social without a click id
   }
   return undefined;
+}
+
+/** Display form of a CRM campaign label (HubSpot stores "+" for spaces in some drill-downs). */
+function displayLabel(s: string) {
+  return s.replace(/\+/g, " ").replace(/%20/g, " ").trim();
+}
+
+/**
+ * Paid-social campaigns that only the CRM knows about: events whose campaign
+ * label matches no stored campaign. They are returned as spend-less
+ * placeholders so the funnel they produced (leads → revenue) is visible on the
+ * dashboard until the platform's own connector supplies the real campaign.
+ * Platforms scanned by an ad connector this run are skipped so the two never
+ * coexist.
+ */
+export function derivedSocialCampaigns(events: CrmFunnelEvent[], campaigns: Campaign[], platformsWithConnector: Set<Platform>): NormalizedCampaign[] {
+  const known = new Set(campaigns.map((c) => normalizeLabel(c.name)));
+  const out = new Map<string, NormalizedCampaign>();
+  for (const e of events) {
+    if (!e.campaignName) continue;
+    const platform = platformFor(e);
+    if (!platform || platform === "google" || platformsWithConnector.has(platform)) continue;
+    const label = normalizeLabel(e.campaignName);
+    if (!label || known.has(label)) continue;
+    const externalId = `hubspot:${label}`;
+    if (out.has(externalId)) continue;
+    out.set(externalId, {
+      platform,
+      externalId,
+      name: displayLabel(e.campaignName),
+      status: "active",
+      objective: "lead_generation",
+      dailyBudget: 0,
+      currency: "USD",
+      channelType: "Via HubSpot (no spend data)",
+    });
+  }
+  return [...out.values()];
 }
 
 /** Spend by campaign and date, used to pick the channel-fallback campaign. */
