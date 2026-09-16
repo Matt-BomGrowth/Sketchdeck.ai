@@ -99,7 +99,7 @@ export async function runDailyBrief(repo: DataRepository, options: { windowDays?
   const date = snapshot.endDate;
   const composed = composeBrief(snapshot, date, monthly);
   const brief: DailyBrief = {
-    id: newId("brief"),
+    id: newId(),
     organizationId: snapshot.organization.id,
     date,
     subject: composed.subject,

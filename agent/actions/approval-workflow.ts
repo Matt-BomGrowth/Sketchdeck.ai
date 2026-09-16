@@ -55,7 +55,7 @@ export function applyDecision(rec: Recommendation, input: DecisionInput, now = n
   const status: RecommendationStatus = input.decision === "modify" ? "modified" : "approved";
   const updated: Recommendation = { ...rec, status, budgetChange };
   const action: OptimizationAction = {
-    id: newId("act"),
+    id: newId(),
     organizationId: rec.organizationId,
     recommendationId: rec.id,
     platform: rec.platform ?? "google",

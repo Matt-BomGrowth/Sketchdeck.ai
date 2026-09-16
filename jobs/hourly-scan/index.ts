@@ -33,7 +33,7 @@ export async function runHourlyScan(repo: DataRepository, options: ScanOptions =
   const now = options.now ?? new Date();
   const log = options.log ?? (() => undefined);
   const run: ScanRun = {
-    id: newId("scan"),
+    id: newId(),
     organizationId: (await repo.getOrganization()).id,
     startedAt: now.toISOString(),
     platformsScanned: [],

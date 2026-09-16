@@ -55,7 +55,7 @@ describe("applyDecision", () => {
     expect(action!.after).toBe("$120/day");
     expect(action!.approver).toBe("matt");
     expect(action!.createdAt).toBe(NOW.toISOString());
-    expect(action!.id).toMatch(/^act_/);
+    expect(action!.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   });
 
   it("modify → status modified with the overridden budget target", () => {
