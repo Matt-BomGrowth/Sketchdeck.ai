@@ -50,9 +50,28 @@ export class NotFairGoogleAdsConnector implements AdPlatformConnector {
   }
 
   async fetchDailyMetrics(range: DateRange): Promise<NormalizedCampaignMetric[]> {
-    const res = await this.client.runGoogleAdsScript<{ rows: any[]; truncated: boolean }>(dailyCampaignMetricsScript(range.start, range.end), { accountId: this.accountId });
-    if (res.truncated) throw new NotFairError("Daily metrics response truncated; narrow the date range.", "truncated");
-    return normalizeDailyMetrics(res.rows);
+    const rows = await this.fetchChunked(range, 35, (r) => this.client.runGoogleAdsScript<{ rows: any[]; truncated: boolean }>(dailyCampaignMetricsScript(r.start, r.end), { accountId: this.accountId }));
+    return normalizeDailyMetrics(rows);
+  }
+
+  /**
+   * NotFair truncates large GAQL responses. Fetch the range in windows of
+   * `initialDays`, and when a window still comes back truncated, split it in
+   * half down to a single day before giving up.
+   */
+  private async fetchChunked(range: DateRange, initialDays: number, run: (r: DateRange) => Promise<{ rows: any[]; truncated: boolean }>): Promise<any[]> {
+    const out: any[] = [];
+    for (const window of splitRange(range, initialDays)) {
+      const res = await run(window);
+      if (!res.truncated) {
+        out.push(...(res.rows ?? []));
+        continue;
+      }
+      const days = daysBetween(window.start, window.end);
+      if (days <= 1) throw new NotFairError(`Metrics response truncated even for a single day (${window.start}).`, "truncated");
+      out.push(...(await this.fetchChunked(window, Math.ceil(days / 2), run)));
+    }
+    return out;
   }
 
   async fetchCreatives(): Promise<NormalizedCreative[]> {
@@ -65,12 +84,28 @@ export class NotFairGoogleAdsConnector implements AdPlatformConnector {
   }
 
   async fetchCreativeDailyMetrics(range: DateRange): Promise<NormalizedCreativeMetric[]> {
-    const res = await this.client.runGoogleAdsScript<{ rows: any[]; truncated: boolean }>(dailyAdMetricsScript(range.start, range.end), { accountId: this.accountId });
-    if (res.truncated) throw new NotFairError("Ad metrics response truncated; narrow the date range.", "truncated");
-    return normalizeAdDailyMetrics(res.rows);
+    const rows = await this.fetchChunked(range, 7, (r) => this.client.runGoogleAdsScript<{ rows: any[]; truncated: boolean }>(dailyAdMetricsScript(r.start, r.end), { accountId: this.accountId }));
+    return normalizeAdDailyMetrics(rows);
   }
 }
 
 function iso(d: Date) {
   return d.toISOString().slice(0, 10);
+}
+
+function daysBetween(start: string, end: string) {
+  return Math.round((Date.UTC(+end.slice(0, 4), +end.slice(5, 7) - 1, +end.slice(8, 10)) - Date.UTC(+start.slice(0, 4), +start.slice(5, 7) - 1, +start.slice(8, 10))) / 86_400_000) + 1;
+}
+
+function splitRange(range: DateRange, days: number): DateRange[] {
+  const windows: DateRange[] = [];
+  const cursor = new Date(`${range.start}T00:00:00Z`);
+  const last = new Date(`${range.end}T00:00:00Z`);
+  while (cursor <= last) {
+    const end = new Date(cursor);
+    end.setUTCDate(end.getUTCDate() + days - 1);
+    windows.push({ start: iso(cursor), end: iso(end > last ? last : end) });
+    cursor.setUTCDate(cursor.getUTCDate() + days);
+  }
+  return windows;
 }

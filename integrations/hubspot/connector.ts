@@ -23,6 +23,12 @@ import type { CrmConnector, CrmFunnelEvent, DateRange } from "@/integrations/typ
  * `hubspot_form_submit` / `hubspot_meeting_success` events originate).
  */
 const BASE = "https://api.hubapi.com";
+const MIN_REQUEST_GAP_MS = 300;
+const MAX_RETRIES = 3;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export class HubSpotConnector implements CrmConnector {
   key = "hubspot" as const;
@@ -35,14 +41,33 @@ export class HubSpotConnector implements CrmConnector {
     return Boolean(this.token);
   }
 
+  /**
+   * HubSpot's search endpoints allow ~4 requests/second. Space requests out
+   * and, on 429, wait for the Retry-After interval before retrying.
+   */
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const res = await fetch(`${BASE}${path}`, {
-      ...init,
-      headers: { Authorization: `Bearer ${this.token}`, "Content-Type": "application/json", ...(init.headers ?? {}) },
-    });
-    if (res.status === 429) throw new Error("HubSpot rate limit reached (429). Retry after the Retry-After interval.");
-    if (!res.ok) throw new Error(`HubSpot ${path} → ${res.status} ${await res.text().catch(() => "")}`);
-    return (await res.json()) as T;
+    for (let attempt = 0; ; attempt++) {
+      await this.pace();
+      const res = await fetch(`${BASE}${path}`, {
+        ...init,
+        headers: { Authorization: `Bearer ${this.token}`, "Content-Type": "application/json", ...(init.headers ?? {}) },
+      });
+      if (res.status === 429 && attempt < MAX_RETRIES) {
+        const retryAfter = Number(res.headers.get("retry-after"));
+        await sleep(Math.min(Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 2000 * (attempt + 1), 15_000));
+        continue;
+      }
+      if (res.status === 429) throw new Error(`HubSpot rate limit reached (429) after ${MAX_RETRIES} retries.`);
+      if (!res.ok) throw new Error(`HubSpot ${path} → ${res.status} ${await res.text().catch(() => "")}`);
+      return (await res.json()) as T;
+    }
+  }
+
+  private lastRequestAt = 0;
+  private async pace() {
+    const wait = this.lastRequestAt + MIN_REQUEST_GAP_MS - Date.now();
+    if (wait > 0) await sleep(wait);
+    this.lastRequestAt = Date.now();
   }
 
   /** Which portal the token belongs to — shown in Integrations so an agency portal is never mistaken for the client's. */
