@@ -80,6 +80,14 @@ No CLI, no `.env.local`, no local terminal. Tokens are stored server-side in the
 
 `vercel.json` schedules `/api/cron/daily-brief` at 13:00 UTC and `/api/cron/hourly-scan` at 12:00 UTC (**once daily**, not hourly). Vercel sends `Authorization: Bearer $CRON_SECRET` automatically.
 
+**Run a scan on demand (no terminal):** the cron endpoints also accept the secret as a query parameter, so after connecting an integration you can trigger the first sync from a browser instead of waiting for the schedule:
+
+```
+https://<your-vercel-domain>/api/cron/hourly-scan?key=<CRON_SECRET>
+```
+
+The JSON response lists `platformsScanned`, `campaignsScanned`, and any per-integration `errors`; `status: "completed"` with an empty `errors` array means every configured connector synced.
+
 **Why the scan isn't actually hourly by default:** Vercel's free **Hobby** plan restricts cron jobs to at most once per day per job — a genuinely hourly schedule (`0 * * * *`) is rejected at deploy time with "Hobby accounts are limited to daily cron jobs," and the deployment never completes. The `/api/cron/hourly-scan` endpoint itself has no such limit; only Vercel's own Hobby-plan scheduler does. Two ways to get real hourly cadence:
 
 - **Upgrade the Vercel project to the Pro plan**, then change the schedule back to `"0 * * * *"` in `vercel.json`.
