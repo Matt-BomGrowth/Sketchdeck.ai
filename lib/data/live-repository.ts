@@ -166,6 +166,7 @@ export class LiveRepository implements DataRepository {
       height: r.height ?? undefined,
       testGroup: r.test_group ?? undefined,
       variant: r.variant ?? undefined,
+      ...rsaAssets(r.raw),
     }));
   }
 
@@ -456,18 +457,16 @@ export class LiveRepository implements DataRepository {
   }
 
   async saveDailyBrief(brief: DailyBrief) {
-    const { error } = await this.db
-      .from("daily_briefs")
-      .upsert(
-        {
-          organization_id: this.organizationId,
-          date: brief.date,
-          subject: brief.subject,
-          summary_markdown: brief.summaryMarkdown,
-          email_html: brief.emailHtml,
-        },
-        { onConflict: "organization_id,date" },
-      );
+    const { error } = await this.db.from("daily_briefs").upsert(
+      {
+        organization_id: this.organizationId,
+        date: brief.date,
+        subject: brief.subject,
+        summary_markdown: brief.summaryMarkdown,
+        email_html: brief.emailHtml,
+      },
+      { onConflict: "organization_id,date" },
+    );
     if (error) throw new Error(error.message);
   }
 
@@ -477,20 +476,18 @@ export class LiveRepository implements DataRepository {
   }
 
   async saveIntegrationStatus(status: IntegrationStatus) {
-    const { error } = await this.db
-      .from("integrations")
-      .upsert(
-        {
-          organization_id: this.organizationId,
-          key: status.key,
-          name: status.name,
-          health: status.health,
-          detail: status.detail,
-          last_sync_at: status.lastSyncAt ?? null,
-          last_error: status.health === "connection_issue" ? status.detail : null,
-        },
-        { onConflict: "organization_id,key" },
-      );
+    const { error } = await this.db.from("integrations").upsert(
+      {
+        organization_id: this.organizationId,
+        key: status.key,
+        name: status.name,
+        health: status.health,
+        detail: status.detail,
+        last_sync_at: status.lastSyncAt ?? null,
+        last_error: status.health === "connection_issue" ? status.detail : null,
+      },
+      { onConflict: "organization_id,key" },
+    );
     if (error) throw new Error(error.message);
   }
 
@@ -809,6 +806,20 @@ export class LiveRepository implements DataRepository {
       .from("audit_logs")
       .insert({ organization_id: this.organizationId, actor, action, entity_type: entityType, entity_id: entityId ?? null, details });
   }
+}
+
+/** RSA headline/description assets and ad-group name kept in the stored raw GAQL row. */
+function rsaAssets(raw: Row | null | undefined): { headlines?: string[]; descriptions?: string[]; adGroupName?: string } {
+  if (!raw || typeof raw !== "object") return {};
+  const rsa = raw.ad_group_ad?.ad?.responsive_search_ad;
+  const texts = (list: unknown) => (Array.isArray(list) ? list.map((x) => String((x as Row)?.text ?? "")).filter(Boolean) : undefined);
+  const out: { headlines?: string[]; descriptions?: string[]; adGroupName?: string } = {};
+  const h = texts(rsa?.headlines);
+  const d = texts(rsa?.descriptions);
+  if (h?.length) out.headlines = h;
+  if (d?.length) out.descriptions = d;
+  if (raw.ad_group?.name) out.adGroupName = String(raw.ad_group.name);
+  return out;
 }
 
 /** Keep the last row per key so a single upsert never carries two rows for the same conflict target. */

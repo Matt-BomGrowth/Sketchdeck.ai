@@ -3,13 +3,22 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 
-const PRESETS = [
+const DEFAULT_PRESETS = [
   { key: "7d", label: "7 days" },
   { key: "30d", label: "30 days" },
   { key: "90d", label: "90 days" },
 ];
 
-export function WindowSelect({ current }: { current: string }) {
+export function WindowSelect({
+  current,
+  presets = DEFAULT_PRESETS,
+  max = 180,
+}: {
+  current: string;
+  presets?: Array<{ key: string; label: string }>;
+  max?: number;
+}) {
+  const PRESETS = presets;
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -26,7 +35,10 @@ export function WindowSelect({ current }: { current: string }) {
           key={p.key}
           type="button"
           onClick={() => set(p.key)}
-          className={cn("rounded-sm px-2.5 py-1 text-xs font-medium transition-colors", current === p.key ? "bg-surface text-foreground shadow-sm" : "text-muted hover:text-foreground")}
+          className={cn(
+            "rounded-sm px-2.5 py-1 text-xs font-medium transition-colors",
+            current === p.key ? "bg-surface text-foreground shadow-sm" : "text-muted hover:text-foreground",
+          )}
         >
           {p.label}
         </button>
@@ -36,14 +48,14 @@ export function WindowSelect({ current }: { current: string }) {
         <input
           type="number"
           min={2}
-          max={180}
+          max={max}
           defaultValue={custom ? current : ""}
           placeholder="days"
           className="w-12 bg-transparent text-xs tnum focus:outline-none"
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               const v = Number((e.target as HTMLInputElement).value);
-              if (v >= 2 && v <= 180) set(String(v));
+              if (v >= 2 && v <= max) set(String(v));
             }
           }}
           aria-label="Custom window in days"

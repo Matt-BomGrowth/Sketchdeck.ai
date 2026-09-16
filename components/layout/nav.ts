@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Bot, Building2, Cable, Gauge, Image as ImageIcon, Lightbulb, Megaphone, Settings, TrendingUp, Users, Workflow } from "lucide-react";
+import { Bot, Building2, Cable, CalendarRange, Gauge, Image as ImageIcon, Lightbulb, Megaphone, Settings, TrendingUp, Users, Workflow } from "lucide-react";
 
 export interface NavItem {
   href: string;
@@ -8,6 +8,7 @@ export interface NavItem {
 }
 
 export const PRIMARY_NAV: NavItem[] = [
+  { href: "/weekly-report", label: "Weekly Report", icon: CalendarRange },
   { href: "/", label: "Overview", icon: Gauge },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/pipeline", label: "Pipeline", icon: TrendingUp },

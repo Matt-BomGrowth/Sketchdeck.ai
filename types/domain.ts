@@ -120,6 +120,10 @@ export interface Creative {
   /** Optional A/B test grouping. */
   testGroup?: string;
   variant?: "A" | "B" | "C";
+  /** Search ads: every headline / description asset (RSA), when the platform supplies them. */
+  headlines?: string[];
+  descriptions?: string[];
+  adGroupName?: string;
 }
 
 export interface CreativeDailyMetric extends Omit<DailyMetric, "campaignId"> {

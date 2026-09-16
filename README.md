@@ -16,6 +16,7 @@ It is not another dashboard and it does not replace Google Ads, Meta, LinkedIn o
 
 | Area | What it answers |
 | --- | --- |
+| **Weekly Report** | The weekly ad performance report: blended → platform → campaign → creative → week-over-week trends → plain-English summary → next focus. Default last 7 days vs. the previous 7; 14 / 30 / custom days. |
 | **Overview** | Every channel side by side vs. the prior period; Google Ads keywords and search terms; GA4; SEO; CRM funnel by source; what needs attention and where the opportunities are. |
 | **Campaigns** | Sortable/filterable table with pipeline ROAS, cost/SQL, health (0–100) and fatigue (0–100) per campaign. |
 | **Pipeline** | The B2B revenue funnel with volume, conversion, cost and value per stage; lead-quality comparison by channel. |
