@@ -22,10 +22,17 @@ export class Ga4Connector implements Connector {
   async checkHealth(): Promise<IntegrationStatus> {
     if (!this.isConfigured()) return { key: this.key, name: this.name, health: "not_configured", detail: "GA4 is read through NotFair MCP; set NOTFAIR_MCP_URL." };
     try {
-      const props = await this.client.executeRead<Array<{ name: string; displayName?: string; active?: boolean; availableForTools?: boolean }> | { properties?: unknown[] }>(READ.ga4ListProperties);
-      const list = Array.isArray(props) ? props : [];
-      const active = list.find((p) => p.active) ?? list[0];
-      return { key: this.key, name: this.name, health: "connected", detail: active ? `Property ${active.displayName ?? active.name}` : "GA4 reachable", lastSyncAt: new Date().toISOString() };
+      // listProperties returns account summaries: { items: [{ displayName, propertySummaries: [{ property, displayName, active }] }] }.
+      const res = await this.client.executeRead<{ items?: Array<{ propertySummaries?: Array<{ property: string; displayName?: string; active?: boolean }> }> }>(READ.ga4ListProperties);
+      const properties = (res.items ?? []).flatMap((a) => a.propertySummaries ?? []);
+      const active = properties.find((p) => this.propertyId ? p.property === this.propertyId : p.active);
+      return {
+        key: this.key,
+        name: this.name,
+        health: active ? "connected" : "connection_issue",
+        detail: active ? `Property ${active.displayName ?? active.property} (${active.property})` : `No active GA4 property${this.propertyId ? ` matching ${this.propertyId}` : ""} in NotFair.`,
+        lastSyncAt: new Date().toISOString(),
+      };
     } catch (err) {
       return { key: this.key, name: this.name, health: "connection_issue", detail: err instanceof Error ? err.message : String(err) };
     }

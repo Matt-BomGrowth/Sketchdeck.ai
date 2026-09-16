@@ -13,6 +13,10 @@
  *   3. Otherwise unattributed (counted, never invented).
  *
  * Every allocation is explainable and recorded in the returned report.
+ * Note on `leads`: the stored per-campaign-day `leads` metric is the ad
+ * platform's primary conversions. CRM lead-stage events are tallied in the
+ * returned rows for the report, but the live repository does not write them
+ * over the platform figure (same conversion, second system).
  */
 
 import type { Campaign, Platform } from "@/types/domain";

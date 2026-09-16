@@ -88,6 +88,31 @@ https://<your-vercel-domain>/api/cron/hourly-scan?key=<CRON_SECRET>
 
 The JSON response lists `platformsScanned`, `campaignsScanned`, and any per-integration `errors`; `status: "completed"` with an empty `errors` array means every configured connector synced.
 
+### Daily brief email (Resend)
+
+Until an email provider is configured the daily brief is generated and stored but not delivered (`EMAIL_PROVIDER=console`). To send it:
+
+1. Create a free [Resend](https://resend.com) account and an API key (Resend → API Keys → Create).
+2. Sending *from* your own domain requires verifying it in Resend (Domains → Add → add the DNS records it shows). Until that's done, Resend only lets you send from `onboarding@resend.dev` **to the email address on the Resend account** — fine for testing.
+3. In Vercel → Settings → Environment Variables (Production), add:
+
+   | Key | Value |
+   | --- | --- |
+   | `EMAIL_PROVIDER` | `resend` |
+   | `EMAIL_PROVIDER_API_KEY` | the Resend API key (type **Secret**) |
+   | `EMAIL_FROM` | `AdPilot AI <adpilot@sketchdeck.ai>` once the domain is verified; `AdPilot AI <onboarding@resend.dev>` before |
+   | `DAILY_BRIEF_RECIPIENTS` | comma-separated recipients, e.g. `matt@bomgrowth.com` |
+
+4. Redeploy, then send a test brief from the browser:
+
+   ```
+   https://<your-vercel-domain>/api/cron/daily-brief?key=<CRON_SECRET>
+   ```
+
+   The response includes `delivery.delivered: true` on success, or the provider's error message (an unverified domain or a recipient Resend won't deliver to shows up here).
+
+After that, Vercel Cron sends the brief automatically every day at 13:00 UTC.
+
 **Why the scan isn't actually hourly by default:** Vercel's free **Hobby** plan restricts cron jobs to at most once per day per job — a genuinely hourly schedule (`0 * * * *`) is rejected at deploy time with "Hobby accounts are limited to daily cron jobs," and the deployment never completes. The `/api/cron/hourly-scan` endpoint itself has no such limit; only Vercel's own Hobby-plan scheduler does. Two ways to get real hourly cadence:
 
 - **Upgrade the Vercel project to the Pro plan**, then change the schedule back to `"0 * * * *"` in `vercel.json`.

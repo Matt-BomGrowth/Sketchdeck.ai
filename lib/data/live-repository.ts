@@ -449,12 +449,14 @@ export class LiveRepository implements DataRepository {
       .eq("entity_type", "campaign")
       .in("date", dates);
     if (reset.error) throw new Error(reset.error.message);
+    // `leads` is deliberately not written here: it stays the ad platform's primary
+    // conversions (set by upsertDailyMetrics). CRM lead-stage events are the same
+    // conversions seen from HubSpot's side and would overwrite, not add.
     const payload = rows.map((r) => ({
       organization_id: this.organizationId,
       entity_type: "campaign",
       entity_id: r.campaignId,
       date: r.date,
-      leads: r.leads,
       mqls: r.mqls,
       sqls: r.sqls,
       opportunities: r.opportunities,

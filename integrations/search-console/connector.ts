@@ -3,10 +3,9 @@ import type { Connector } from "@/integrations/types";
 import { getNotFairClient, NotFairClient } from "@/integrations/notfair/client";
 
 /**
- * Google Search Console via NotFair MCP.
- * Verified 2026-09-14: NotFair supports search_console but it is NOT connected
- * in the SketchDeck workspace ("search_console is not connected in this
- * workspace"). The connector reports that honestly until it is connected.
+ * Google Search Console via NotFair MCP (site https://www.sketchdeck.ai/,
+ * connected in the SketchDeck workspace as of 2026-09-16). Health reports
+ * "not_configured" honestly if the platform is ever disconnected in NotFair.
  */
 export class SearchConsoleConnector implements Connector {
   key = "search_console" as const;
