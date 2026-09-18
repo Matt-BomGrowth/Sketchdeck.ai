@@ -68,6 +68,19 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
         </div>
       </PageHeader>
 
+      {d.unavailable.length ? (
+        <div className="rounded-md border border-warning/40 bg-warning-soft px-4 py-3 text-xs">
+          <p className="font-medium">
+            {d.migrationMissing ? "Database migration 0004 has not been applied yet." : "Some channel-detail sources could not be read."}
+          </p>
+          <p className="mt-1 text-muted">
+            {d.migrationMissing
+              ? "Run database/migrations/0004_channel_detail.sql in the Supabase SQL editor, then trigger a scan. Until then the keyword, search-term, GA4, SEO and CRM-by-source sections show as not synced."
+              : d.unavailable.map((u) => `${u.source}: ${u.error}`).join(" · ")}
+          </p>
+        </div>
+      ) : null}
+
       {/* 1. Channel overview */}
       <ChannelTable rows={d.channels} windowLabel={s.window.label} previousLabel={d.previous.label} />
 

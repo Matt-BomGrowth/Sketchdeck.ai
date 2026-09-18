@@ -35,14 +35,23 @@ export async function loadChannelDetail(repo: DataRepository, windowDays: number
   const window: DateWindow = windowEnding(end, windowDays);
   const previous = previousWindow(window);
   const range = { start: previous.start, end: window.end };
+  // The channel-detail tables arrive with migration 0004. Until it is applied
+  // (or when a source has simply not synced yet) the page must still render,
+  // so each optional source degrades to "no rows" and is reported in `unavailable`.
+  const unavailable: Array<{ source: string; error: string }> = [];
+  const optional = <T>(source: string, p: Promise<T[]>): Promise<T[]> =>
+    p.catch((err: unknown) => {
+      unavailable.push({ source, error: err instanceof Error ? err.message : String(err) });
+      return [];
+    });
   const [campaigns, dailyMetrics, keywords, searchTerms, ga4Rows, scRows, crmRows, statuses] = await Promise.all([
     repo.getCampaigns(),
     repo.getDailyMetrics(range),
-    repo.getKeywordDailyMetrics(range),
-    repo.getSearchTermDailyMetrics(range),
-    repo.getGa4Daily(range),
-    repo.getSearchConsoleDaily(range),
-    repo.getCrmFunnelDaily(range),
+    optional("Google Ads keywords", repo.getKeywordDailyMetrics(range)),
+    optional("Google Ads search terms", repo.getSearchTermDailyMetrics(range)),
+    optional("GA4 daily", repo.getGa4Daily(range)),
+    optional("Search Console daily", repo.getSearchConsoleDaily(range)),
+    optional("CRM funnel by source", repo.getCrmFunnelDaily(range)),
     repo.getIntegrationStatuses(),
   ]);
   const campaignsById = new Map(campaigns.map((c) => [c.id, c]));
@@ -90,6 +99,9 @@ export async function loadChannelDetail(repo: DataRepository, windowDays: number
     signals,
     attention: signals.filter((s) => s.kind === "attention"),
     opportunities: signals.filter((s) => s.kind === "opportunity"),
+    /** Sources whose table could not be read (e.g. migration 0004 not applied yet). */
+    unavailable,
+    migrationMissing: unavailable.some((u) => /does not exist|relation|schema cache/i.test(u.error)),
   };
 }
 

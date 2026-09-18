@@ -19,16 +19,28 @@ export async function loadWeeklyReport(repo: DataRepository, days: number, endDa
   const previous = previousWindow(window);
   if (days === 7) previous.label = "last week";
   const range = { start: previous.start, end: window.end };
+  // Ad-level rows are optional: if they cannot be read the report still renders
+  // (the ad section says so) rather than failing the whole page.
+  const optional = <T>(p: Promise<T[]>): Promise<T[]> => p.catch(() => []);
   const [campaigns, dailyMetrics, creatives, creativeDailyMetrics, integrations, runs] = await Promise.all([
     repo.getCampaigns(),
     repo.getDailyMetrics(range),
-    repo.getCreatives(),
-    repo.getCreativeDailyMetrics(range),
+    optional(repo.getCreatives()),
+    optional(repo.getCreativeDailyMetrics(range)),
     repo.getIntegrationStatuses(),
-    repo.getScanRuns(1),
+    optional(repo.getScanRuns(1)),
   ]);
   const last = runs[0];
-  const report = buildWeeklyReport({ campaigns, dailyMetrics, creatives, creativeDailyMetrics, window, previous, integrations, lastSyncAt: last?.finishedAt ?? last?.startedAt });
+  const report = buildWeeklyReport({
+    campaigns,
+    dailyMetrics,
+    creatives,
+    creativeDailyMetrics,
+    window,
+    previous,
+    integrations,
+    lastSyncAt: last?.finishedAt ?? last?.startedAt,
+  });
   return { ...report, summary: weeklySummary(report), nextFocus: nextFocus(report), endDate: end };
 }
 
